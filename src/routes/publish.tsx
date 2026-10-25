@@ -83,7 +83,7 @@ function Publish() {
                     {t}
                   </li>
                 ))}
-                {step === STEPS.length && <li className="font-semibold text-primary">Published (demo)</li>}
+                {step === STEPS.length && <li className="font-semibold text-primary">Simulated in demo — nothing was posted to Instagram</li>}
               </ol>
             )}
           </Card>
