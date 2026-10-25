@@ -123,7 +123,7 @@ function RootComponent() {
               </Link>
             ))}
           </nav>
-          <p className="mt-auto text-xs text-muted-foreground">Uses Meta's official Instagram API only.</p>
+          <p className="mt-auto text-xs text-muted-foreground">Uses Meta's official Instagram API only. Live integration pending setup.</p>
         </aside>
         <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:hidden">
           <Brand />
