@@ -7,7 +7,7 @@ import { useMetaConfig } from "@/lib/use-mode";
 import { getOAuthUrl } from "@/lib/meta.functions";
 
 export const Route = createFileRoute("/connect")({
-  validateSearch: (s: Record<string, unknown>) => ({ oauth: typeof s.oauth === "string" ? s.oauth : undefined }),
+  validateSearch: (s: Record<string, unknown>): { oauth?: string } => ({ oauth: typeof s["oauth"] === "string" ? s["oauth"] : undefined }),
   head: () => ({
     meta: [
       { title: "Connect Instagram — InstaBridge MCP" },

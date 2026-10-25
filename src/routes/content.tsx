@@ -19,7 +19,7 @@ export const Route = createFileRoute("/content")({
 function Content() {
   const [q, setQ] = useState("");
   const [type, setType] = useState<"ALL" | Media["type"]>("ALL");
-  const [sel, setSel] = useState<Media | null>(demoMedia[0]);
+  const [sel, setSel] = useState<Media | null>(demoMedia[0] ?? null);
   const list = demoMedia.filter((m) => (type === "ALL" || m.type === type) && m.caption.toLowerCase().includes(q.toLowerCase()));
 
   return (
