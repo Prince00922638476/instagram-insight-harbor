@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/mcp-keys")({
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data, error } = await supabaseAdmin.from("mcp_api_keys")
-            .select("id,name,key_prefix,created_at,last_used_at,revoked_at")
+            .select("id,name,key_prefix,created_at,last_used_at,revoked_at,expires_at")
             .eq("user_id", ownerId).order("created_at", { ascending: false });
           if (error) throw error;
           return Response.json({ keys: data ?? [] }, { headers: noStoreHeaders() });
@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/public/mcp-keys")({
           const key = "ib_mcp_" + randomBytes(32).toString("base64url");
           const id = randomUUID();
           const { error } = await supabaseAdmin.from("mcp_api_keys").insert({
-            id, user_id: ownerId, name, key_hash: hashApiKey(key), key_prefix: key.slice(0, 14),
+            id, user_id: ownerId, name, key_hash: hashApiKey(key), key_prefix: key.slice(0, 14), expires_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
           });
           if (error) throw error;
           // The clear key is returned once only; only its hash is persisted.
