@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, Upload, ShieldCheck, Loader2, Info, Copy, KeyRound, Trash2, ExternalLink } from "lucide-react";
 import { Button, Card, ConfirmDialog, DemoBadge, PageHeader } from "@/components/ui-kit";
 import { actions, ALL_SCOPES, useAppState } from "@/lib/app-store";
@@ -57,7 +57,7 @@ function Connect() {
   const nameOk = /^[a-z0-9-]{3,40}$/.test(name);
   const canSubmit = nameOk && consent && scopes.length > 0 && !busy;
 
-  async function refreshLiveStatus() {
+  const refreshLiveStatus = useCallback(async () => {
     try {
       const response = await fetch("/api/public/meta/status", { cache: "no-store", credentials: "same-origin" });
       const status = await response.json() as LiveStatus;
@@ -70,9 +70,9 @@ function Connect() {
     } catch {
       setLiveStatus({ connected: false, error: "status_unavailable" });
     }
-  }
+  }, []);
 
-  useEffect(() => { void refreshLiveStatus(); }, [oauth]);
+  useEffect(() => { void refreshLiveStatus(); }, [oauth, refreshLiveStatus]);
 
   function onIcon(file?: File) {
     if (!file) return;
