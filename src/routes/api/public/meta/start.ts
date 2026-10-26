@@ -10,8 +10,8 @@ export const Route = createFileRoute("/api/public/meta/start")({
         const secret = process.env["META_APP_SECRET"];
         const redirectUri = process.env["META_REDIRECT_URI"];
         if (!appId || !secret || !redirectUri ||
-          !process.env["INSTAGRAM_SESSION_SECRET"] ||
-          !process.env["INSTAGRAM_TOKEN_ENCRYPTION_KEY"] ||
+          !(process.env["INSTAGRAM_SESSION_SECRET"] && process.env["INSTAGRAM_SESSION_SECRET"].length >= 32) ||
+          !/^[a-f0-9]{64}$/i.test(process.env["INSTAGRAM_TOKEN_ENCRYPTION_KEY"] ?? "") ||
           !process.env["SUPABASE_URL"] || !process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
           return new Response(null, {
             status: 302,
@@ -27,6 +27,7 @@ export const Route = createFileRoute("/api/public/meta/start")({
           const ownerId = readSession(request) ?? newSessionId();
           const state = crypto.randomUUID();
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          await supabaseAdmin.from("oauth_states").delete().lt("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
           const { error } = await supabaseAdmin.from("oauth_states").insert({
             state,
             user_id: ownerId,
