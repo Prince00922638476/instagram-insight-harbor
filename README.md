@@ -1,23 +1,80 @@
-# InstaBridge MCP
+# Instagram Insight Harbor (InstaBridge MCP)
 
-Connect an Instagram professional account via Meta's official **Instagram API with Instagram Login** and expose supported actions to AI assistants through MCP.
+Connect an Instagram professional account using Meta's official **Instagram API with Instagram Login**. This app includes a secure OAuth callback, server-encrypted access tokens, an Instagram data UI, confirmed write actions, and a stateless Streamable HTTP MCP endpoint.
 
-## Modes
-- **DEMO** (default): no Meta credentials → sample data, clearly labeled. Demo state is kept in the browser.
-- **LIVE**: set `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI` in Project Settings → Secrets.
+## Features
 
-## Setup
-1. Business or Creator Instagram account.
-2. Meta app with the Instagram product; redirect URI `https://YOUR-DOMAIN/api/public/meta/callback`.
-3. Permissions: `instagram_business_basic`, `instagram_business_manage_insights`, `instagram_business_manage_comments`, `instagram_business_content_publish`.
-4. App Review + Business Verification before non-tester accounts can connect.
+- Real OAuth state persisted server-side, expires after 10 minutes and is consumed once.
+- Browser session cookie is HttpOnly, Secure, SameSite=Lax and signed on the server.
+- Long-lived access tokens are encrypted with AES-256-GCM before database storage.
+- Instagram profile, media, eligible insights and comment listing through official Graph API endpoints.
+- Confirmed comment replies, comment hide/unhide and image/reel publishing workflows.
+- MCP endpoint at `/api/mcp` with API-key authentication. Clear API keys are shown only at creation; only a keyed hash is stored.
+- Demo content is kept separate and explicitly labeled when Instagram is not connected.
 
-## Security
-- Secrets are read only inside server functions (`src/lib/meta.functions.ts`) and the callback route.
-- The OAuth code is exchanged server-side; tokens never reach the browser.
-- No scraping, no password collection.
+## Required server-side secrets
 
-## Status / next steps
-- Token persistence: the callback exchanges the code but does **not** store the token yet. Enable a backend database (Lovable Cloud) to store tokens encrypted per user, add OAuth `state` verification, and refresh long-lived tokens.
-- MCP server: tool catalogue documented on `/setup`. Implement with `@lovable.dev/mcp-js` once per-user auth exists, so each assistant acts only as its signed-in user.
-- Every write action (publish, reply, hide, disconnect) requires confirmation and is written to the activity log.
+Set these using your hosting provider's server-side Secrets/Environment settings. **Never commit values to GitHub or expose them in browser JavaScript.**
+
+| Name | Purpose |
+|---|---|
+| `META_APP_ID` | Instagram App ID from the Instagram API with Instagram Login product settings |
+| `META_APP_SECRET` | Matching Instagram App Secret |
+| `META_REDIRECT_URI` | Exact callback URL, for example `https://YOUR-DOMAIN/api/public/meta/callback` |
+| `INSTAGRAM_SESSION_SECRET` | Random secret, at least 32 characters, for signing browser sessions and hashing MCP keys |
+| `INSTAGRAM_TOKEN_ENCRYPTION_KEY` | 32 random bytes encoded as 64 hexadecimal characters for AES-256-GCM |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only service-role key |
+| `INSTAGRAM_GRAPH_API_VERSION` | Optional override; defaults to `v25.0` |
+
+For the two random secrets, generate values locally using a trusted random generator (for example, 32 random bytes encoded as hexadecimal). Save them directly in deployment secrets, not in chat or source control. Do not rotate the encryption key unless you have a plan to re-encrypt existing stored tokens.
+
+## Database setup
+
+Against the connected Supabase database, apply these SQL migrations **once and in order** if they have not already been applied:
+
+1. `drizzle/migrations/0000_instagram_core.sql`
+2. `drizzle/migrations/0001_mcp_api_keys.sql`
+
+The token and OAuth state tables are protected by RLS and only grant server-side service-role access. The clear Instagram token is never sent to the browser.
+
+## Meta setup and testing
+
+1. Use an Instagram **Business or Creator** account. Personal accounts are not supported by this API path.
+2. In Meta for Developers, configure the Instagram API with Instagram Login and copy the Instagram App ID and App Secret from that product's settings.
+3. Register the exact callback URL as the redirect URI.
+4. Add server secrets and apply database migrations.
+5. Open `/connect`, choose the permissions needed, and authorize using an account assigned to your Meta app. Test while the app is in Development mode first.
+6. Test loading media, reading insights, replying to a comment and publishing with a non-sensitive test post before using write tools.
+7. Meta App Review / Advanced Access may be required for accounts outside the app's roles.
+
+## Connect an AI client
+
+After a real Instagram connection succeeds, open the **Connect** page and create an MCP API key. It appears once; copy it to the AI client's secret/header configuration.
+
+- Transport: Streamable HTTP / JSON-RPC
+- Endpoint: `https://YOUR-DOMAIN/api/mcp`
+- Header: `Authorization: Bearer YOUR_MCP_KEY`
+- Supported tools: `get_profile`, `list_media`, `get_media_insights`, `list_comments`, `reply_to_comment`, `hide_comment`, `publish_media`
+
+Every write tool requires `confirmed: true` after the account owner explicitly reviews the exact public action. Do not configure the key in frontend code, a public URL, or a shared repository. Revoke keys from the Connect page. Disconnecting removes the stored account token and revokes keys for that browser session.
+
+## Free hosting setup: Cloudflare Workers
+
+This repository includes a **manual** GitHub Actions workflow at `.github/workflows/deploy-cloudflare.yml`. It builds and tests the app, then deploys the generated Nitro Worker. It does not run until manually triggered.
+
+1. Create/sign in to a Cloudflare account and enable Workers.
+2. In GitHub repository Settings → Secrets and variables → Actions, add `CLOUDFLARE_API_TOKEN` (a token with permission to deploy Workers) and `CLOUDFLARE_ACCOUNT_ID`.
+3. Open Actions → **Deploy to Cloudflare Workers** → Run workflow. Check that the build and deploy steps both pass, then copy the assigned `workers.dev` URL.
+4. In Cloudflare Dashboard → Workers & Pages → the deployed Worker → Settings → Variables and Secrets, add all seven required server-side variables listed above. Mark app secret, session secret, encryption key and Supabase service-role key as **Secrets**, not plain text. Set `META_REDIRECT_URI` to `https://YOUR-WORKER-URL/api/public/meta/callback`.
+5. In Meta for Developers, add that exact callback URL to the Instagram Login redirect URI allowlist. Save the Meta settings.
+6. In the Supabase SQL Editor, run both migrations above in order. Use the server-side service-role key only in Cloudflare Secrets; never publish it to GitHub or send it in chat.
+7. Open the deployed site → `/setup` to check environment readiness, then `/connect` to authorize the Instagram account. Test read-only profile/media first, then test write actions only with a safe test post/comment.
+
+Free tier note: Cloudflare Workers currently has request/CPU limits; free service is not an unlimited or permanent guarantee. Supabase and Meta may also impose their own quotas or review requirements. A custom domain is optional; use the assigned `workers.dev` URL to start.
+
+**Do not paste any tokens, app secrets, or Supabase service-role keys into conversations or source files.** The required values must be added directly in the respective account dashboards.
+
+## Deployment and verification notes
+
+A correct code deployment still needs valid Meta app settings, a reachable Supabase database, the SQL migrations, and Meta-granted permissions. Some API fields/metrics depend on media type and permissions, so the app returns API errors rather than manufacturing sample metrics for live accounts. The repository's live endpoints should be tested in the deployment environment after secrets are configured.

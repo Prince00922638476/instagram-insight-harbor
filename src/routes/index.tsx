@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Plug, Users, Image as ImageIcon, Eye, MessageCircle, ArrowRight, Server } from "lucide-react";
 import { Card, DemoBadge, PageHeader, Skeleton } from "@/components/ui-kit";
 import { demoAccount, demoMedia, weeklyReach } from "@/lib/demo-data";
@@ -20,8 +21,49 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const s = useAppState();
   const cfg = useMetaConfig();
+  const [live, setLive] = useState<{ connected: boolean; account?: { username: string | null; accountType: string | null } | null } | null>(null);
+  const [liveMedia, setLiveMedia] = useState<Array<{ id: string; caption?: string; permalink?: string; media_url?: string; thumbnail_url?: string; media_type?: string; like_count?: number; comments_count?: number }>>([]);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveLoaded, setLiveLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const response = await fetch("/api/public/meta/status", { cache: "no-store" });
+        const status = await response.json() as { connected?: boolean; account?: { username: string | null; accountType: string | null } | null };
+        if (cancelled) return;
+        setLive({ connected: Boolean(status.connected), account: status.account });
+        if (status.connected) {
+          const mediaResponse = await fetch("/api/public/instagram/media?limit=50", { cache: "no-store" });
+          const media = await mediaResponse.json() as { data?: Array<{ id: string; caption?: string; permalink?: string; media_url?: string; thumbnail_url?: string; media_type?: string; like_count?: number; comments_count?: number }>; error?: string };
+          if (!mediaResponse.ok) throw new Error(media.error || "Could not load Instagram media.");
+          if (!cancelled) setLiveMedia(media.data ?? []);
+        }
+      } catch (error) {
+        if (!cancelled) setLiveError(error instanceof Error ? error.message : "Could not load live Instagram data.");
+      } finally { if (!cancelled) setLiveLoaded(true); }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
   const open = s.comments.filter((c) => c.replies.length === 0 && !c.hidden).length;
   const max = Math.max(...weeklyReach);
+
+  if (live?.connected) {
+    const likes = liveMedia.reduce((sum, media) => sum + (media.like_count ?? 0), 0);
+    const comments = liveMedia.reduce((sum, media) => sum + (media.comments_count ?? 0), 0);
+    return <>
+      <PageHeader title="Dashboard" subtitle="Live overview of your connected Instagram account." />
+      <Card className="mb-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="font-display text-xl font-bold">@{live.account?.username || "Instagram professional account"}</p><p className="text-sm text-muted-foreground">{live.account?.accountType || "Instagram account"} · Connected through official Instagram Login</p></div><Link to="/connect" className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold">Connection settings</Link></div></Card>
+      {liveError && <Card className="mb-5"><p className="text-sm text-destructive">{liveError}</p></Card>}
+      {!liveLoaded ? <p className="py-8 text-sm text-muted-foreground">Loading live Instagram data…</p> : <>
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4"><Stat icon={<ImageIcon />} label="Recent media loaded" value={liveMedia.length} /><Stat icon={<Eye />} label="Likes on loaded media" value={likes.toLocaleString()} /><Stat icon={<MessageCircle />} label="Comments on loaded media" value={comments.toLocaleString()} /><Stat icon={<Plug />} label="Connection" value="Live" /></div>
+        <h2 className="mb-3 mt-8 text-xl font-bold">Recent posts</h2>
+        {liveMedia.length === 0 ? <Card><p className="text-sm text-muted-foreground">No media was returned by Instagram for this account.</p></Card> : <div className="grid grid-cols-3 gap-2 md:grid-cols-6">{liveMedia.slice(0, 12).map(media => <a key={media.id} href={media.permalink || "/content"} target={media.permalink ? "_blank" : undefined} rel={media.permalink ? "noopener noreferrer" : undefined} className="aspect-square overflow-hidden rounded-xl bg-muted">{(media.thumbnail_url || media.media_url) ? <img src={media.thumbnail_url || media.media_url} alt={media.caption || "Instagram post"} loading="lazy" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center p-2 text-center text-xs">Media preview unavailable</div>}</a>)}</div>}
+      </>}
+    </>;
+  }
+  if (live === null && !liveLoaded) return <div className="py-10 text-sm text-muted-foreground">Checking Instagram connection…</div>;
 
   return (
     <>
