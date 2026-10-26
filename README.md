@@ -59,6 +59,22 @@ After a real Instagram connection succeeds, open the **Connect** page and create
 
 Every write tool requires `confirmed: true` after the account owner explicitly reviews the exact public action. Do not configure the key in frontend code, a public URL, or a shared repository. Revoke keys from the Connect page. Disconnecting removes the stored account token and revokes keys for that browser session.
 
+## Free hosting setup: Cloudflare Workers
+
+This repository includes a **manual** GitHub Actions workflow at `.github/workflows/deploy-cloudflare.yml`. It builds and tests the app, then deploys the generated Nitro Worker. It does not run until manually triggered.
+
+1. Create/sign in to a Cloudflare account and enable Workers.
+2. In GitHub repository Settings → Secrets and variables → Actions, add `CLOUDFLARE_API_TOKEN` (a token with permission to deploy Workers) and `CLOUDFLARE_ACCOUNT_ID`.
+3. Open Actions → **Deploy to Cloudflare Workers** → Run workflow. Check that the build and deploy steps both pass, then copy the assigned `workers.dev` URL.
+4. In Cloudflare Dashboard → Workers & Pages → the deployed Worker → Settings → Variables and Secrets, add all seven required server-side variables listed above. Mark app secret, session secret, encryption key and Supabase service-role key as **Secrets**, not plain text. Set `META_REDIRECT_URI` to `https://YOUR-WORKER-URL/api/public/meta/callback`.
+5. In Meta for Developers, add that exact callback URL to the Instagram Login redirect URI allowlist. Save the Meta settings.
+6. In the Supabase SQL Editor, run both migrations above in order. Use the server-side service-role key only in Cloudflare Secrets; never publish it to GitHub or send it in chat.
+7. Open the deployed site → `/setup` to check environment readiness, then `/connect` to authorize the Instagram account. Test read-only profile/media first, then test write actions only with a safe test post/comment.
+
+Free tier note: Cloudflare Workers currently has request/CPU limits; free service is not an unlimited or permanent guarantee. Supabase and Meta may also impose their own quotas or review requirements. A custom domain is optional; use the assigned `workers.dev` URL to start.
+
+**Do not paste any tokens, app secrets, or Supabase service-role keys into conversations or source files.** The required values must be added directly in the respective account dashboards.
+
 ## Deployment and verification notes
 
 A correct code deployment still needs valid Meta app settings, a reachable Supabase database, the SQL migrations, and Meta-granted permissions. Some API fields/metrics depend on media type and permissions, so the app returns API errors rather than manufacturing sample metrics for live accounts. The repository's live endpoints should be tested in the deployment environment after secrets are configured.
