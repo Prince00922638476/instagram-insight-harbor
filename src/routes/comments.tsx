@@ -15,7 +15,7 @@ export const Route = createFileRoute("/comments")({
 
 type LiveComment = { id: string; user: string; text: string; date: string; mediaId: string; mediaCaption: string; replies: string[]; hidden: boolean };
 type MediaItem = { id: string; caption?: string; timestamp?: string };
-type Pending = { kind: "reply"; id: string; text: string } | { kind: "hide"; id: string; hidden: boolean };
+type Pending = { kind: "reply"; id: string; text: string; hidden?: never } | { kind: "hide"; id: string; hidden: boolean; text?: never };
 
 function Comments() {
   const s = useAppState();
