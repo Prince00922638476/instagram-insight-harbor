@@ -23,7 +23,7 @@ export function signSession(id: string): string {
 }
 
 export function sessionCookie(id: string): string {
-  return `${SESSION_COOKIE}=${id}.${signSession(id)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`;
+  return `${SESSION_COOKIE}=${id}.${signSession(id)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`;
 }
 
 export function clearSessionCookie(): string {
