@@ -120,6 +120,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expires_at?: string
           id?: string
           key_hash?: string
           key_prefix?: string
