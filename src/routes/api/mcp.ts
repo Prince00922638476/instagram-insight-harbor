@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { hashApiKey, instagramApi, noStoreHeaders } from "@/lib/instagram.server";
 
 type RpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
-type ApiKeyRow = { id: string; user_id: string; revoked_at: string | null };
+type ApiKeyRow = { id: string; user_id: string; revoked_at: string | null; expires_at: string };
 
 const tools = [
   { name: "get_profile", description: "Read the connected Instagram professional account profile.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
@@ -54,8 +54,8 @@ export const Route = createFileRoute("/api/mcp")({
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: key, error: keyError } = await supabaseAdmin.from("mcp_api_keys")
-            .select("id,user_id,revoked_at").eq("key_hash", hashApiKey(suppliedKey)).maybeSingle();
-          if (keyError || !key || key.revoked_at) return new Response("Unauthorized", { status: 401, headers: noStoreHeaders({ "WWW-Authenticate": "Bearer" }) });
+            .select("id,user_id,revoked_at,expires_at").eq("key_hash", hashApiKey(suppliedKey)).maybeSingle();
+          if (keyError || !key || key.revoked_at || new Date(key.expires_at).getTime() <= Date.now()) return new Response("Unauthorized", { status: 401, headers: noStoreHeaders({ "WWW-Authenticate": "Bearer" }) });
           const apiKey = key as ApiKeyRow;
           await supabaseAdmin.from("mcp_api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", apiKey.id);
           const id = rpc.id ?? null;
