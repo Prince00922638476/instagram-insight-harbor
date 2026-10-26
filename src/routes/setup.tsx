@@ -40,7 +40,7 @@ function Setup() {
       <h2 className="mb-3 font-bold">Server configuration</h2>
       {cfg.isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : cfg.isError ? <p className="text-sm text-destructive">Could not check server configuration.</p> : <ul className="space-y-3 text-sm">
         {requiredSecrets.map(([name, description]) => {
-          const ok = cfg.data?.checks[name as keyof typeof cfg.data.checks] ?? false;
+          const ok = cfg.data?.checks[name as keyof NonNullable<typeof cfg.data>["checks"]] ?? false;
           return <li key={name} className="flex items-start gap-2"><span className="mt-0.5">{ok ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <XCircle className="h-4 w-4 text-destructive" />}</span><div><div className="flex flex-wrap items-center gap-2"><code>{name}</code><span className={ok ? "text-primary" : "text-destructive"}>{ok ? "set" : "missing"}</span></div><p className="mt-1 text-xs text-muted-foreground">{description}</p></div></li>;
         })}
       </ul>}
