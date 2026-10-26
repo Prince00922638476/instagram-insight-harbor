@@ -33,16 +33,20 @@ export function clearSessionCookie(): string {
 export function readSession(request: Request): string | null {
   const raw = (request.headers.get("cookie") ?? "").split(";").map(x => x.trim()).find(x => x.startsWith(SESSION_COOKIE + "="));
   if (!raw) return null;
-  const value = decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1));
+  const value = raw.slice(SESSION_COOKIE.length + 1);
   const dot = value.lastIndexOf(".");
   if (dot < 1) return null;
   const id = value.slice(0, dot);
   const supplied = value.slice(dot + 1);
   if (!/^[0-9a-f-]{36}$/i.test(id) || !/^[a-f0-9]{64}$/.test(supplied)) return null;
-  const expected = signSession(id);
-  const a = Buffer.from(supplied, "hex");
-  const b = Buffer.from(expected, "hex");
-  return a.length === b.length && timingSafeEqual(a, b) ? id : null;
+  try {
+    const expected = signSession(id);
+    const a = Buffer.from(supplied, "hex");
+    const b = Buffer.from(expected, "hex");
+    return a.length === b.length && timingSafeEqual(a, b) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 function encryptionKey(): Buffer {
