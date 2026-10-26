@@ -82,7 +82,7 @@ export function noStoreHeaders(extra?: HeadersInit): Headers {
 
 export function graphVersion(): string {
   const version = process.env["INSTAGRAM_GRAPH_API_VERSION"] ?? "v25.0";
-  return /^v\\d+\\.0$/.test(version) ? version : "v25.0";
+  return /^v[0-9]+[.]0$/.test(version) ? version : "v25.0";
 }
 export async function loadInstagramToken(sessionId: string): Promise<string> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
