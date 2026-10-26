@@ -15,12 +15,13 @@ export const Route = createFileRoute("/api/public/meta/disconnect")({
         }
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const [tokens, connection, states] = await Promise.all([
+          const [tokens, connection, states, keys] = await Promise.all([
             supabaseAdmin.from("instagram_tokens").delete().eq("user_id", sessionId),
             supabaseAdmin.from("instagram_connections").delete().eq("user_id", sessionId),
             supabaseAdmin.from("oauth_states").delete().eq("user_id", sessionId),
+            supabaseAdmin.from("mcp_api_keys").update({ revoked_at: new Date().toISOString() }).eq("user_id", sessionId).is("revoked_at", null),
           ]);
-          if (tokens.error || connection.error || states.error) throw new Error("Database deletion failed.");
+          if (tokens.error || connection.error || states.error || keys.error) throw new Error("Database deletion failed.");
           return Response.json({ disconnected: true }, { headers: noStoreHeaders({ "Set-Cookie": clearSessionCookie() }) });
         } catch (error) {
           console.error("[Instagram disconnect]", error instanceof Error ? error.message : "Database unavailable");
