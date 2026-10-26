@@ -17,6 +17,15 @@ import { Route as ContentRouteImport } from './routes/content'
 import { Route as PublishRouteImport } from './routes/publish'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
+import { Route as ApiPublicMetaStartRouteImport } from './routes/api/public/meta/start'
+import { Route as ApiPublicMetaStatusRouteImport } from './routes/api/public/meta/status'
+import { Route as ApiPublicMetaDisconnectRouteImport } from './routes/api/public/meta/disconnect'
+import { Route as ApiPublicMcpKeysRouteImport } from './routes/api/public/mcp-keys'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
+import { Route as ApiPublicInstagramMediaRouteImport } from './routes/api/public/instagram/media'
+import { Route as ApiPublicInstagramCommentsRouteImport } from './routes/api/public/instagram/comments'
+import { Route as ApiPublicInstagramInsightsRouteImport } from './routes/api/public/instagram/insights'
+import { Route as ApiPublicInstagramActionsRouteImport } from './routes/api/public/instagram/actions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +67,51 @@ const ApiPublicMetaCallbackRoute = ApiPublicMetaCallbackRouteImport.update({
   path: '/api/public/meta/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMetaStartRoute = ApiPublicMetaStartRouteImport.update({
+  id: '/api/public/meta/start',
+  path: '/api/public/meta/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMetaStatusRoute = ApiPublicMetaStatusRouteImport.update({
+  id: '/api/public/meta/status',
+  path: '/api/public/meta/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMetaDisconnectRoute = ApiPublicMetaDisconnectRouteImport.update({
+  id: '/api/public/meta/disconnect',
+  path: '/api/public/meta/disconnect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMcpKeysRoute = ApiPublicMcpKeysRouteImport.update({
+  id: '/api/public/mcp-keys',
+  path: '/api/public/mcp-keys',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicInstagramMediaRoute = ApiPublicInstagramMediaRouteImport.update({
+  id: '/api/public/instagram/media',
+  path: '/api/public/instagram/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicInstagramCommentsRoute = ApiPublicInstagramCommentsRouteImport.update({
+  id: '/api/public/instagram/comments',
+  path: '/api/public/instagram/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicInstagramInsightsRoute = ApiPublicInstagramInsightsRouteImport.update({
+  id: '/api/public/instagram/insights',
+  path: '/api/public/instagram/insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicInstagramActionsRoute = ApiPublicInstagramActionsRouteImport.update({
+  id: '/api/public/instagram/actions',
+  path: '/api/public/instagram/actions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +122,15 @@ export interface FileRoutesByFullPath {
   '/publish': typeof PublishRoute
   '/setup': typeof SetupRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
+  '/api/public/meta/start': typeof ApiPublicMetaStartRoute
+  '/api/public/meta/status': typeof ApiPublicMetaStatusRoute
+  '/api/public/meta/disconnect': typeof ApiPublicMetaDisconnectRoute
+  '/api/public/mcp-keys': typeof ApiPublicMcpKeysRoute
+  '/api/mcp': typeof ApiMcpRoute
+  '/api/public/instagram/media': typeof ApiPublicInstagramMediaRoute
+  '/api/public/instagram/comments': typeof ApiPublicInstagramCommentsRoute
+  '/api/public/instagram/insights': typeof ApiPublicInstagramInsightsRoute
+  '/api/public/instagram/actions': typeof ApiPublicInstagramActionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +164,33 @@ export interface FileRouteTypes {
     | '/publish'
     | '/setup'
     | '/api/public/meta/callback'
+    | '/api/public/meta/start'
+    | '/api/public/meta/status'
+    | '/api/public/meta/disconnect'
+    | '/api/public/mcp-keys'
+    | '/api/mcp'
+    | '/api/public/instagram/media'
+    | '/api/public/instagram/comments'
+    | '/api/public/instagram/insights'
+    | '/api/public/instagram/actions'
+    | '/api/public/meta/start'
+    | '/api/public/meta/status'
+    | '/api/public/meta/disconnect'
+    | '/api/public/mcp-keys'
+    | '/api/mcp'
+    | '/api/public/instagram/media'
+    | '/api/public/instagram/comments'
+    | '/api/public/instagram/insights'
+    | '/api/public/instagram/actions'
+    | '/api/public/meta/start'
+    | '/api/public/meta/status'
+    | '/api/public/meta/disconnect'
+    | '/api/public/mcp-keys'
+    | '/api/mcp'
+    | '/api/public/instagram/media'
+    | '/api/public/instagram/comments'
+    | '/api/public/instagram/insights'
+    | '/api/public/instagram/actions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -132,6 +222,15 @@ export interface RootRouteChildren {
   PublishRoute: typeof PublishRoute
   SetupRoute: typeof SetupRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
+  ApiPublicMetaStartRoute: typeof ApiPublicMetaStartRoute
+  ApiPublicMetaStatusRoute: typeof ApiPublicMetaStatusRoute
+  ApiPublicMetaDisconnectRoute: typeof ApiPublicMetaDisconnectRoute
+  ApiPublicMcpKeysRoute: typeof ApiPublicMcpKeysRoute
+  ApiMcpRoute: typeof ApiMcpRoute
+  ApiPublicInstagramMediaRoute: typeof ApiPublicInstagramMediaRoute
+  ApiPublicInstagramCommentsRoute: typeof ApiPublicInstagramCommentsRoute
+  ApiPublicInstagramInsightsRoute: typeof ApiPublicInstagramInsightsRoute
+  ApiPublicInstagramActionsRoute: typeof ApiPublicInstagramActionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -186,6 +285,69 @@ declare module '@tanstack/react-router' {
       parentRoute: typeof rootRouteImport
     }
     '/api/public/meta/callback': {
+    '/api/public/meta/start': {
+      id: '/api/public/meta/start'
+      path: '/api/public/meta/start'
+      fullPath: '/api/public/meta/start'
+      preLoaderRoute: typeof ApiPublicMetaStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/meta/status': {
+      id: '/api/public/meta/status'
+      path: '/api/public/meta/status'
+      fullPath: '/api/public/meta/status'
+      preLoaderRoute: typeof ApiPublicMetaStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/meta/disconnect': {
+      id: '/api/public/meta/disconnect'
+      path: '/api/public/meta/disconnect'
+      fullPath: '/api/public/meta/disconnect'
+      preLoaderRoute: typeof ApiPublicMetaDisconnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mcp-keys': {
+      id: '/api/public/mcp-keys'
+      path: '/api/public/mcp-keys'
+      fullPath: '/api/public/mcp-keys'
+      preLoaderRoute: typeof ApiPublicMcpKeysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/instagram/media': {
+      id: '/api/public/instagram/media'
+      path: '/api/public/instagram/media'
+      fullPath: '/api/public/instagram/media'
+      preLoaderRoute: typeof ApiPublicInstagramMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/instagram/comments': {
+      id: '/api/public/instagram/comments'
+      path: '/api/public/instagram/comments'
+      fullPath: '/api/public/instagram/comments'
+      preLoaderRoute: typeof ApiPublicInstagramCommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/instagram/insights': {
+      id: '/api/public/instagram/insights'
+      path: '/api/public/instagram/insights'
+      fullPath: '/api/public/instagram/insights'
+      preLoaderRoute: typeof ApiPublicInstagramInsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/instagram/actions': {
+      id: '/api/public/instagram/actions'
+      path: '/api/public/instagram/actions'
+      fullPath: '/api/public/instagram/actions'
+      preLoaderRoute: typeof ApiPublicInstagramActionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
       id: '/api/public/meta/callback'
       path: '/api/public/meta/callback'
       fullPath: '/api/public/meta/callback'
@@ -204,6 +366,15 @@ const rootRouteChildren: RootRouteChildren = {
   PublishRoute: PublishRoute,
   SetupRoute: SetupRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
+  ApiPublicMetaStartRoute: ApiPublicMetaStartRoute,
+  ApiPublicMetaStatusRoute: ApiPublicMetaStatusRoute,
+  ApiPublicMetaDisconnectRoute: ApiPublicMetaDisconnectRoute,
+  ApiPublicMcpKeysRoute: ApiPublicMcpKeysRoute,
+  ApiMcpRoute: ApiMcpRoute,
+  ApiPublicInstagramMediaRoute: ApiPublicInstagramMediaRoute,
+  ApiPublicInstagramCommentsRoute: ApiPublicInstagramCommentsRoute,
+  ApiPublicInstagramInsightsRoute: ApiPublicInstagramInsightsRoute,
+  ApiPublicInstagramActionsRoute: ApiPublicInstagramActionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
