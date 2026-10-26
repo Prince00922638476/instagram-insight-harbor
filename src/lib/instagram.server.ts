@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual, createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createHmac, timingSafeEqual, createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 
 export const SESSION_COOKIE = "instabridge_session";
 export const ALLOWED_SCOPES = [
@@ -15,7 +15,7 @@ function sessionSecret(): string {
 }
 
 export function newSessionId(): string {
-  return randomBytes(32).toString("hex");
+  return randomUUID();
 }
 
 export function signSession(id: string): string {
@@ -38,7 +38,7 @@ export function readSession(request: Request): string | null {
   if (dot < 1) return null;
   const id = value.slice(0, dot);
   const supplied = value.slice(dot + 1);
-  if (!/^[a-f0-9]{64}$/.test(id) || !/^[a-f0-9]{64}$/.test(supplied)) return null;
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !/^[a-f0-9]{64}$/.test(supplied)) return null;
   const expected = signSession(id);
   const a = Buffer.from(supplied, "hex");
   const b = Buffer.from(expected, "hex");
