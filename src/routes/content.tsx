@@ -25,6 +25,10 @@ function Content() {
   }, []);
   if (connected === null) return <div className="py-10 text-sm text-muted-foreground">Checking Instagram connection…</div>;
   if (connected) return <LiveContent />;
+  return <DemoContent />;
+}
+
+function DemoContent() {
   const [q, setQ] = useState("");
   const [type, setType] = useState<"ALL" | Media["type"]>("ALL");
   const [sel, setSel] = useState<Media | null>(demoMedia[0] ?? null);
