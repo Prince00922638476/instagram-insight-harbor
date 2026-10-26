@@ -98,6 +98,7 @@ export type Database = {
       mcp_api_keys: {
         Row: {
           created_at: string
+          expires_at: string
           id: string
           key_hash: string
           key_prefix: string
@@ -108,6 +109,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expires_at?: string
           id?: string
           key_hash: string
           key_prefix: string
