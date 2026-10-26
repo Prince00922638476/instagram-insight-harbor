@@ -33,8 +33,10 @@ export const Route = createFileRoute("/api/public/mcp-keys")({
         if (!name) return Response.json({ error: "Key name is required." }, { status: 400, headers: noStoreHeaders() });
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: connection, error: connectionError } = await supabaseAdmin.from("instagram_connections").select("status").eq("user_id", ownerId).eq("status", "connected").maybeSingle();
+          if (connectionError || !connection) return Response.json({ error: "Connect a real Instagram account before creating an MCP key." }, { status: 409, headers: noStoreHeaders() });
           const { count, error: countError } = await supabaseAdmin.from("mcp_api_keys")
-            .select("id", { count: "exact", head: true }).eq("user_id", ownerId).is("revoked_at", null);
+            .select("id", { count: "exact", head: true }).eq("user_id", ownerId).is("revoked_at", null).gt("expires_at", new Date().toISOString());
           if (countError) throw countError;
           if ((count ?? 0) >= 5) return Response.json({ error: "Revoke an old key before creating another. Limit: 5 active keys." }, { status: 429, headers: noStoreHeaders() });
           const key = "ib_mcp_" + randomBytes(32).toString("base64url");
