@@ -6,7 +6,8 @@ CREATE TABLE public.mcp_api_keys (
   key_prefix text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   last_used_at timestamptz,
-  revoked_at timestamptz
+  revoked_at timestamptz,
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '60 days')
 );
 CREATE INDEX mcp_api_keys_user_idx ON public.mcp_api_keys (user_id, created_at DESC);
 ALTER TABLE public.mcp_api_keys ENABLE ROW LEVEL SECURITY;
