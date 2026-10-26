@@ -80,3 +80,68 @@ export function graphVersion(): string {
   const version = process.env["INSTAGRAM_GRAPH_API_VERSION"] ?? "v25.0";
   return /^v\\d+\\.0$/.test(version) ? version : "v25.0";
 }
+export async function loadInstagramToken(sessionId: string): Promise<string> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const [{ data: tokenRow, error: tokenError }, { data: connection, error: connectionError }] = await Promise.all([
+    supabaseAdmin.from("instagram_tokens").select("access_token,updated_at").eq("user_id", sessionId).maybeSingle(),
+    supabaseAdmin.from("instagram_connections").select("status,token_expires_at").eq("user_id", sessionId).maybeSingle(),
+  ]);
+  if (tokenError || connectionError) throw new Error("Instagram storage is unavailable.");
+  if (!tokenRow?.access_token || connection?.status !== "connected") throw new Error("Instagram is not connected.");
+  let token = decryptToken(tokenRow.access_token);
+  const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at).getTime() : 0;
+  const tokenUpdated = new Date(tokenRow.updated_at).getTime();
+  const needsRefresh = expiresAt > 0 && expiresAt - Date.now() < 7 * 24 * 60 * 60 * 1000;
+  const oldEnoughToRefresh = Number.isFinite(tokenUpdated) && Date.now() - tokenUpdated > 24 * 60 * 60 * 1000;
+  if (needsRefresh && oldEnoughToRefresh) {
+    const refreshUrl = new URL("https://graph.instagram.com/refresh_access_token");
+    refreshUrl.searchParams.set("grant_type", "ig_refresh_token");
+    refreshUrl.searchParams.set("access_token", token);
+    const response = await fetch(refreshUrl, { signal: AbortSignal.timeout(15000) });
+    const result = await response.json().catch(() => ({})) as { access_token?: string; expires_in?: number; error?: { message?: string } };
+    if (!response.ok || !result.access_token) throw new Error("Instagram token refresh failed. Reconnect the account in Settings.");
+    token = result.access_token;
+    const now = new Date().toISOString();
+    const nextExpiry = new Date(Date.now() + (result.expires_in ?? 5_184_000) * 1000).toISOString();
+    const [{ error: tokenSaveError }, { error: connectionSaveError }] = await Promise.all([
+      supabaseAdmin.from("instagram_tokens").update({ access_token: encryptToken(token), updated_at: now }).eq("user_id", sessionId),
+      supabaseAdmin.from("instagram_connections").update({ token_expires_at: nextExpiry, updated_at: now }).eq("user_id", sessionId),
+    ]);
+    if (tokenSaveError || connectionSaveError) throw new Error("The refreshed Instagram token could not be saved.");
+  }
+  return token;
+}
+
+export async function instagramApi(
+  sessionId: string,
+  path: string,
+  params: Record<string, string> = {},
+  method: "GET" | "POST" = "GET",
+): Promise<Record<string, unknown>> {
+  const token = await loadInstagramToken(sessionId);
+  const safePath = path.split("/").filter(Boolean).map(segment => encodeURIComponent(segment)).join("/");
+  const url = new URL(`https://graph.instagram.com/${graphVersion()}/${safePath}`);
+  const body = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (method === "GET") url.searchParams.set(key, value);
+    else body.set(key, value);
+  }
+  if (method === "GET") url.searchParams.set("access_token", token);
+  else body.set("access_token", token);
+  const response = await fetch(url, {
+    method,
+    ...(method === "POST" ? { body, headers: { "Content-Type": "application/x-www-form-urlencoded" } } : {}),
+    signal: AbortSignal.timeout(20000),
+  });
+  const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+  if (!response.ok || data.error) {
+    const apiError = data.error as { message?: string } | undefined;
+    throw new Error(apiError?.message || `Instagram API returned HTTP ${response.status}.`);
+  }
+  return data;
+}
+
+export function hashApiKey(key: string): string {
+  return createHmac("sha256", sessionSecret()).update("mcp-key:").update(key).digest("hex");
+}
+
