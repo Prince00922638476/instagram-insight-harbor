@@ -20,5 +20,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Run tests
         run: bun run test
-      - name: Build
-        run: bun run build
+      - name: Build and verify Cloudflare output
+        run: |
+          bun run build
+          test -f .output/server/index.mjs
+          test -f .output/wrangler.json
