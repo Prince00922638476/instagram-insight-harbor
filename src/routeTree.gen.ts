@@ -15,6 +15,7 @@ import { Route as PublishRouteImport } from './routes/publish'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiPublicInstagramActionsRouteImport } from './routes/api/public/instagram/actions'
+import { Route as ApiPublicInstagramActivityRouteImport } from './routes/api/public/instagram/activity'
 import { Route as ApiPublicInstagramCommentsRouteImport } from './routes/api/public/instagram/comments'
 import { Route as ApiPublicInstagramInsightsRouteImport } from './routes/api/public/instagram/insights'
 import { Route as ApiPublicInstagramMediaRouteImport } from './routes/api/public/instagram/media'
@@ -69,6 +70,11 @@ const ApiPublicInstagramActionsRoute = ApiPublicInstagramActionsRouteImport.upda
   path: '/api/public/instagram/actions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicInstagramActivityRoute = ApiPublicInstagramActivityRouteImport.update({
+  id: '/api/public/instagram/activity',
+  path: '/api/public/instagram/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicInstagramCommentsRoute = ApiPublicInstagramCommentsRouteImport.update({
   id: '/api/public/instagram/comments',
   path: '/api/public/instagram/comments',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/api/mcp': typeof ApiMcpRoute
   '/api/public/instagram/actions': typeof ApiPublicInstagramActionsRoute
+  '/api/public/instagram/activity': typeof ApiPublicInstagramActivityRoute
   '/api/public/instagram/comments': typeof ApiPublicInstagramCommentsRoute
   '/api/public/instagram/insights': typeof ApiPublicInstagramInsightsRoute
   '/api/public/instagram/media': typeof ApiPublicInstagramMediaRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/api/mcp': typeof ApiMcpRoute
   '/api/public/instagram/actions': typeof ApiPublicInstagramActionsRoute
+  '/api/public/instagram/activity': typeof ApiPublicInstagramActivityRoute
   '/api/public/instagram/comments': typeof ApiPublicInstagramCommentsRoute
   '/api/public/instagram/insights': typeof ApiPublicInstagramInsightsRoute
   '/api/public/instagram/media': typeof ApiPublicInstagramMediaRoute
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/api/mcp': typeof ApiMcpRoute
   '/api/public/instagram/actions': typeof ApiPublicInstagramActionsRoute
+  '/api/public/instagram/activity': typeof ApiPublicInstagramActivityRoute
   '/api/public/instagram/comments': typeof ApiPublicInstagramCommentsRoute
   '/api/public/instagram/insights': typeof ApiPublicInstagramInsightsRoute
   '/api/public/instagram/media': typeof ApiPublicInstagramMediaRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/api/mcp'
     | '/api/public/instagram/actions'
+    | '/api/public/instagram/activity'
     | '/api/public/instagram/comments'
     | '/api/public/instagram/insights'
     | '/api/public/instagram/media'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/api/mcp'
     | '/api/public/instagram/actions'
+    | '/api/public/instagram/activity'
     | '/api/public/instagram/comments'
     | '/api/public/instagram/insights'
     | '/api/public/instagram/media'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/api/mcp'
     | '/api/public/instagram/actions'
+    | '/api/public/instagram/activity'
     | '/api/public/instagram/comments'
     | '/api/public/instagram/insights'
     | '/api/public/instagram/media'
@@ -238,6 +250,7 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute
   ApiMcpRoute: typeof ApiMcpRoute
   ApiPublicInstagramActionsRoute: typeof ApiPublicInstagramActionsRoute
+  ApiPublicInstagramActivityRoute: typeof ApiPublicInstagramActivityRoute
   ApiPublicInstagramCommentsRoute: typeof ApiPublicInstagramCommentsRoute
   ApiPublicInstagramInsightsRoute: typeof ApiPublicInstagramInsightsRoute
   ApiPublicInstagramMediaRoute: typeof ApiPublicInstagramMediaRoute
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicInstagramActionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/instagram/activity': {
+      id: '/api/public/instagram/activity'
+      path: '/api/public/instagram/activity'
+      fullPath: '/api/public/instagram/activity'
+      preLoaderRoute: typeof ApiPublicInstagramActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/instagram/comments': {
       id: '/api/public/instagram/comments'
       path: '/api/public/instagram/comments'
@@ -382,6 +402,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   ApiMcpRoute: ApiMcpRoute,
   ApiPublicInstagramActionsRoute: ApiPublicInstagramActionsRoute,
+  ApiPublicInstagramActivityRoute: ApiPublicInstagramActivityRoute,
   ApiPublicInstagramCommentsRoute: ApiPublicInstagramCommentsRoute,
   ApiPublicInstagramInsightsRoute: ApiPublicInstagramInsightsRoute,
   ApiPublicInstagramMediaRoute: ApiPublicInstagramMediaRoute,
