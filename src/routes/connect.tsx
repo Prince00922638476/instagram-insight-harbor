@@ -20,7 +20,7 @@ type LiveStatus = {
   account?: { username: string | null; accountType: string | null; scopes: string[]; tokenExpiresAt: string | null } | null;
   error?: string;
 };
-type KeySummary = { id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
+type KeySummary = { id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null; revoked_at: string | null; expires_at: string };
 
 const oauthMsg: Record<string, string> = {
   connected: "Instagram connected successfully. The account and encrypted token are saved on the server.",
@@ -255,7 +255,7 @@ function Connect() {
           {keys.filter(key => !key.revoked_at).length > 0 && <div className="space-y-2">
             <p className="text-sm font-semibold">Active keys</p>
             {keys.filter(key => !key.revoked_at).map(key => <div key={key.id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
-              <div className="min-w-0"><p className="truncate text-sm font-medium">{key.name}</p><code className="text-xs text-muted-foreground">{key.key_prefix}…</code><p className="text-[10px] text-muted-foreground">{key.last_used_at ? `Last used ${new Date(key.last_used_at).toLocaleString()}` : "Not used yet"}</p></div>
+              <div className="min-w-0"><p className="truncate text-sm font-medium">{key.name}</p><code className="text-xs text-muted-foreground">{key.key_prefix}…</code><p className="text-[10px] text-muted-foreground">{key.last_used_at ? `Last used ${new Date(key.last_used_at).toLocaleString()}` : "Not used yet"} · Expires {new Date(key.expires_at).toLocaleDateString()}</p></div>
               <Button variant="outline" className="shrink-0" onClick={() => revokeKey(key.id)}><Trash2 className="h-4 w-4" /> Revoke</Button>
             </div>)}
           </div>}
