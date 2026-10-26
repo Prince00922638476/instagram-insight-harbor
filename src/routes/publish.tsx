@@ -79,7 +79,7 @@ function DemoPublish() {
   const [caption, setCaption] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [step, setStep] = useState(-1);
-  const urlOk = /^https:\\/\\/\\S+\\.(jpe?g|mp4|mov)(\\?\\S*)?$/i.test(url);
+  const urlOk = (() => { try { const parsed = new URL(url); return parsed.protocol === "https:" && /\\.(jpe?g|mp4|mov)$/i.test(parsed.pathname); } catch { return false; } })();
   const allowed = s.connector.connected && s.connector.scopes.includes("instagram_business_content_publish");
 
   async function run() {
