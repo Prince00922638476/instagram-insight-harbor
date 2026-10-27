@@ -61,16 +61,33 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
           if (!encoded || encoded.length > 14_000_000) throw new Error("AI provider did not return a usable image.");
 
           const bucket = "instagram-generated";
-          const { error: bucketError } = await admin.storage.getBucket(bucket);
-          if (bucketError) {
+          let bucketResult = await admin.storage.getBucket(bucket);
+          if (bucketResult.error) {
             const { error: createBucketError } = await admin.storage.createBucket(bucket, {
               public: true,
               allowedMimeTypes: ["image/png"],
               fileSizeLimit: "10MB",
             });
             if (createBucketError) {
-              const { error: verifyBucketError } = await admin.storage.getBucket(bucket);
-              if (verifyBucketError) throw new Error("Could not create the public image bucket. Create Supabase Storage bucket 'instagram-generated' with public read access and PNG allowed.");
+              bucketResult = await admin.storage.getBucket(bucket);
+              if (bucketResult.error) {
+                throw new Error("Could not create the public image bucket. Create Supabase Storage bucket 'instagram-generated' with public read access and PNG allowed.");
+              }
+            } else {
+              bucketResult = await admin.storage.getBucket(bucket);
+            }
+          }
+          if (bucketResult.error || !bucketResult.data) {
+            throw new Error("Could not verify the Instagram image storage bucket.");
+          }
+          if (!bucketResult.data.public) {
+            const { error: updateBucketError } = await admin.storage.updateBucket(bucket, {
+              public: true,
+              allowedMimeTypes: ["image/png"],
+              fileSizeLimit: "10MB",
+            });
+            if (updateBucketError) {
+              throw new Error("The existing 'instagram-generated' bucket is private. Set it to public with PNG allowed, or choose a new public bucket.");
             }
           }
 
