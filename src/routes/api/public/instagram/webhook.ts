@@ -1,6 +1,6 @@
 import { createHmac, createHash, timingSafeEqual } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
-import { instagramApi, noStoreHeaders } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody } from "@/lib/instagram.server";
 
 type WebhookComment = {
   id?: string;
@@ -177,8 +177,15 @@ export const Route = createFileRoute("/api/public/instagram/webhook")({
         return new Response("Webhook verification failed.", { status: 403, headers: noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }) });
       },
       POST: async ({ request }) => {
-        const raw = await request.text();
-        if (raw.length > 1_000_000) return Response.json({ error: "Payload too large." }, { status: 413, headers: noStoreHeaders() });
+        const bodyRead = await readLimitedRequestBody(request, 1_000_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json(
+            { error: tooLarge ? "Payload too large." : "Could not read webhook payload." },
+            { status: tooLarge ? 413 : 400, headers: noStoreHeaders() },
+          );
+        }
+        const raw = bodyRead.text;
         if (!verifySignature(raw, request.headers.get("x-hub-signature-256"))) {
           return Response.json({ error: "Invalid webhook signature." }, { status: 401, headers: noStoreHeaders() });
         }
