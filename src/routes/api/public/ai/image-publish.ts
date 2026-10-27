@@ -13,8 +13,13 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        let rawBody: string;
+        try { rawBody = await request.text(); } catch {
+          return Response.json({ error: "Request body पढ़ा नहीं जा सका।" }, { status: 400, headers: noStoreHeaders() });
+        }
+        if (rawBody.length > 16_000) return Response.json({ error: "Request body बहुत बड़ा है।" }, { status: 413, headers: noStoreHeaders() });
         let input: { prompt?: unknown; caption?: unknown; confirmed?: unknown };
-        try { input = await request.json() as typeof input; } catch {
+        try { input = JSON.parse(rawBody) as typeof input; } catch {
           return Response.json({ error: "Valid JSON भेजें।" }, { status: 400, headers: noStoreHeaders() });
         }
         if (input.confirmed !== true) return Response.json({ error: "Image generation और Instagram publishing से पहले explicit confirmation जरूरी है।" }, { status: 400, headers: noStoreHeaders() });
