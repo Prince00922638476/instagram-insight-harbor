@@ -6,12 +6,27 @@ import {
   graphVersion,
   hashApiKey,
   noStoreHeaders,
+  normalizeInstagramApiPath,
   readSession,
   sessionCookie,
   signSession,
 } from "@/lib/instagram.server";
 
 const sessionId = "f5480644-6e19-4f70-9b31-104b4ce60f87";
+
+describe("Instagram API path validation", () => {
+  it("preserves valid API paths", () => {
+    expect(normalizeInstagramApiPath("me/media")).toBe("me/media");
+    expect(normalizeInstagramApiPath("17841400000000000/media_publish")).toBe("17841400000000000/media_publish");
+  });
+
+  it("rejects traversal, query strings, and empty paths", () => {
+    expect(() => normalizeInstagramApiPath("../me")).toThrow("Invalid Instagram API path.");
+    expect(() => normalizeInstagramApiPath("comments/../../me")).toThrow("Invalid Instagram API path.");
+    expect(() => normalizeInstagramApiPath("me?access_token=secret")).toThrow("Invalid Instagram API path.");
+    expect(() => normalizeInstagramApiPath("")).toThrow("Invalid Instagram API path.");
+  });
+});
 
 describe("Instagram server security helpers", () => {
   beforeEach(() => {
