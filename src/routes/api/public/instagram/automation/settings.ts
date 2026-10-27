@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
             connected: connection?.status === "connected",
             commentPermission: (connection?.scopes ?? []).includes("instagram_business_manage_comments"),
             aiConfigured: Boolean(process.env["OPENAI_API_KEY"]),
-            webhookConfigured: Boolean(process.env["META_WEBHOOK_VERIFY_TOKEN"] && process.env["META_APP_SECRET"]),
+            webhookConfigured: Boolean(process.env["META_WEBHOOK_VERIFY_TOKEN"] && (process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"])),
           }, { headers: noStoreHeaders() });
         } catch (error) {
           console.error("[Automation settings GET]", error instanceof Error ? error.message : "Storage unavailable");
@@ -76,7 +76,7 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
             const missing: string[] = [];
             if (!process.env["OPENAI_API_KEY"]) missing.push("OPENAI_API_KEY");
             if (!process.env["META_WEBHOOK_VERIFY_TOKEN"]) missing.push("META_WEBHOOK_VERIFY_TOKEN");
-            if (!process.env["META_APP_SECRET"]) missing.push("META_APP_SECRET");
+            if (!(process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"])) missing.push("INSTAGRAM_APP_SECRET");
             if (missing.length) {
               const modeLabel = mode === "auto" ? "Auto-reply" : "AI draft mode";
               return Response.json({ error: `${modeLabel} is blocked until these server secrets are configured: ${missing.join(", ")}.` }, { status: 409, headers: noStoreHeaders() });
