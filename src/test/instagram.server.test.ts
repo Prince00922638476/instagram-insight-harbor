@@ -7,6 +7,7 @@ import {
   hashApiKey,
   noStoreHeaders,
   normalizeInstagramApiPath,
+  readLimitedRequestBody,
   readSession,
   sessionCookie,
   signSession,
@@ -82,5 +83,49 @@ describe("Instagram server security helpers", () => {
     expect(graphVersion()).toBe("v25.0");
     vi.stubEnv("INSTAGRAM_GRAPH_API_VERSION", "v26.0");
     expect(graphVersion()).toBe("v26.0");
+  });
+});
+
+describe("bounded request body reader", () => {
+  it("reads valid JSON within the byte limit", async () => {
+    const request = new Request("https://example.test/api", {
+      method: "POST",
+      body: JSON.stringify({ ok: true }),
+    });
+    await expect(readLimitedRequestBody(request, 64)).resolves.toEqual({
+      ok: true,
+      text: '{"ok":true}',
+    });
+  });
+
+  it("rejects a declared body size above the limit before buffering", async () => {
+    const request = new Request("https://example.test/api", {
+      method: "POST",
+      headers: { "content-length": "100" },
+      body: "{}",
+    });
+    await expect(readLimitedRequestBody(request, 10)).resolves.toEqual({
+      ok: false,
+      reason: "too_large",
+    });
+  });
+
+  it("enforces the limit while streaming when content-length is absent", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("1234"));
+        controller.enqueue(new TextEncoder().encode("5678"));
+        controller.close();
+      },
+    });
+    const request = new Request("https://example.test/api", {
+      method: "POST",
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    await expect(readLimitedRequestBody(request, 6)).resolves.toEqual({
+      ok: false,
+      reason: "too_large",
+    });
   });
 });
