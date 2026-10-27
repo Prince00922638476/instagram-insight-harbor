@@ -9,7 +9,7 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen } from "lucide-react";
+import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen, Bot } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -96,6 +96,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 const nav = [
   { to: "/", label: "Home", icon: LayoutGrid },
+  { to: "/ai-chat", label: "AI Chat", icon: Bot },
   { to: "/connect", label: "Connect", icon: Plug },
   { to: "/content", label: "Content", icon: Image },
   { to: "/publish", label: "Publish", icon: Send },
@@ -132,8 +133,8 @@ function RootComponent() {
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 md:px-10 md:pt-10">
           <Outlet />
         </main>
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t bg-card md:hidden">
-          {nav.slice(0, 6).map((n) => (
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t bg-card md:hidden">
+          {nav.slice(0, 7).map((n) => (
             <Link
               key={n.to}
               to={n.to}
