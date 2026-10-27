@@ -24,7 +24,8 @@ const requiredSecrets = [
 const optionalSecrets = [
   ["OPENAI_API_KEY", "AI Chat और AI-generated comment replies के लिए server-only OpenAI API key."],
   ["META_WEBHOOK_VERIFY_TOKEN", "Meta comments webhook verify करने के लिए अपना random secret; यही value Meta Dashboard में डालें."],
-  ["OPENAI_MODEL", "Optional model override; default gpt-4.1-mini."],
+  ["OPENAI_MODEL", "Optional text model override; default gpt-4.1-mini."],
+  ["OPENAI_IMAGE_MODEL", "Optional image model override; default gpt-image-2.5-sunburst."],
 ] as const;
 
 const steps = [
@@ -55,7 +56,7 @@ function Setup() {
       <ul className="space-y-3 text-sm">
         {optionalSecrets.map(([name, description]) => {
           const ok = cfg.data?.optionalChecks[name as keyof NonNullable<typeof cfg.data>["optionalChecks"]] ?? false;
-          const optional = name === "OPENAI_MODEL";
+          const optional = name === "OPENAI_MODEL" || name === "OPENAI_IMAGE_MODEL";
           return <li key={name} className="flex items-start gap-2"><span className="mt-0.5">{ok ? <CheckCircle2 className="h-4 w-4 text-primary" /> : optional ? <ShieldCheck className="h-4 w-4 text-muted-foreground" /> : <XCircle className="h-4 w-4 text-warning" />}</span><div><div className="flex flex-wrap items-center gap-2"><code>{name}</code><span className={ok ? "text-primary" : optional ? "text-muted-foreground" : "text-warning"}>{ok ? "set" : optional ? "optional — default used" : "needed for AI/webhooks"}</span></div><p className="mt-1 text-xs text-muted-foreground">{description}</p></div></li>;
         })}
       </ul>
