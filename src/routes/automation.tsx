@@ -25,6 +25,7 @@ type Draft = {
   commenter_username: string;
   comment_text: string;
   suggested_reply: string;
+  status: "pending" | "sending" | "needs_review";
   created_at: string;
 };
 type Status = {
@@ -119,7 +120,11 @@ function Automation() {
       setNotice(action === "send" ? "Reply Instagram पर भेज दिया गया।" : "Draft हटा दिया गया।");
       setDrafts(current => current.filter(item => item.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Draft action पूरा नहीं हुआ।");
+      const message = err instanceof Error ? err.message : "Draft action पूरा नहीं हुआ।";
+      // Reload status after an ambiguous send failure so the UI never leaves a
+      // possibly-sent reply looking like a normal, safely retryable pending draft.
+      await load();
+      setError(message);
     } finally {
       setDraftBusy(null);
     }
@@ -177,9 +182,10 @@ function Automation() {
             : <div className="space-y-4">{drafts.map(item => <div key={item.id} className="rounded-xl border p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">@{item.commenter_username || "instagram-user"}</p><p className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</p></div>
               <p className="mb-2 rounded-lg bg-muted p-3 text-sm">{item.comment_text}</p>
+              {item.status !== "pending" && <p role="alert" className="mb-3 rounded-lg border border-warning/40 bg-warning-soft p-3 text-xs">{item.status === "sending" ? "Reply request अभी process हो रही है। दोबारा Send मत करो; कुछ देर बाद Refresh करो।" : "Reply भेजी गई हो सकती है, लेकिन final status confirm नहीं हुआ। पहले Instagram comments जाँचो; यह draft दोबारा send नहीं किया जा सकता।"}</p>}
               <label className="mb-1 block text-xs font-semibold">AI reply (edit before sending)</label>
-              <textarea value={editedReplies[item.id] ?? item.suggested_reply} onChange={e => setEditedReplies(current => ({ ...current, [item.id]: e.target.value }))} maxLength={1000} rows={2} className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
-              <div className="mt-3 flex flex-wrap gap-2"><button disabled={draftBusy === item.id || !(editedReplies[item.id] ?? item.suggested_reply).trim()} onClick={() => void handleDraft(item.id, "send")} className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" />{draftBusy === item.id ? "Working…" : "Send reply"}</button><button disabled={draftBusy === item.id} onClick={() => void handleDraft(item.id, "dismiss")} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50"><Trash2 className="h-4 w-4" />Dismiss</button></div>
+              <textarea value={editedReplies[item.id] ?? item.suggested_reply} onChange={e => setEditedReplies(current => ({ ...current, [item.id]: e.target.value }))} maxLength={1000} rows={2} disabled={item.status !== "pending"} className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60" />
+              <div className="mt-3 flex flex-wrap gap-2">{item.status === "pending" && <button disabled={draftBusy === item.id || !(editedReplies[item.id] ?? item.suggested_reply).trim()} onClick={() => void handleDraft(item.id, "send")} className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" />{draftBusy === item.id ? "Working…" : "Send reply"}</button>}{item.status !== "sending" && <button disabled={draftBusy === item.id} onClick={() => void handleDraft(item.id, "dismiss")} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50"><Trash2 className="h-4 w-4" />Dismiss</button>}</div>
             </div>)}</div>}
         </Card>
       </>}
