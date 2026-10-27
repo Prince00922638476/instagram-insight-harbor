@@ -102,7 +102,7 @@ export async function readLimitedRequestBody(
   }
 
   const contentLength = request.headers.get("content-length");
-  if (contentLength && /^\\d+$/.test(contentLength) && Number(contentLength) > maxBytes) {
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > maxBytes) {
     try {
       await request.body?.cancel();
     } catch {
