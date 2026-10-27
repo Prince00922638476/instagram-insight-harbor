@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { hashApiKey, instagramApi, noStoreHeaders } from "@/lib/instagram.server";
+import { hashApiKey, instagramApi, noStoreHeaders, readLimitedRequestBody } from "@/lib/instagram.server";
 
 type RpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
 type ApiKeyRow = { id: string; user_id: string; revoked_at: string | null; expires_at: string };
@@ -48,9 +48,14 @@ export const Route = createFileRoute("/api/mcp")({
         const auth = request.headers.get("authorization") ?? "";
         const suppliedKey = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
         if (!/^ib_mcp_[A-Za-z0-9_-]{40,}$/.test(suppliedKey)) return new Response("Unauthorized", { status: 401, headers: noStoreHeaders({ "WWW-Authenticate": "Bearer" }) });
-        let rawBody: string;
-        try { rawBody = await request.text(); } catch { return rpcError(null, -32700, "Could not read request body."); }
-        if (rawBody.length > 64_000) return new Response("Request body too large.", { status: 413, headers: noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }) });
+        const bodyRead = await readLimitedRequestBody(request, 64_000);
+        if (!bodyRead.ok) {
+          if (bodyRead.reason === "too_large") {
+            return new Response("Request body too large.", { status: 413, headers: noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }) });
+          }
+          return rpcError(null, -32700, "Could not read request body.");
+        }
+        const rawBody = bodyRead.text;
         let rpc: RpcRequest;
         try { rpc = JSON.parse(rawBody) as RpcRequest; } catch { return rpcError(null, -32700, "Parse error."); }
         if (rpc.jsonrpc !== "2.0" || typeof rpc.method !== "string") return rpcError(rpc.id, -32600, "Invalid JSON-RPC request.");
