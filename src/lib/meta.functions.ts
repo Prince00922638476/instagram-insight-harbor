@@ -3,8 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 // Report readiness only. Secret values are never returned to the browser.
 export const getMetaConfig = createServerFn({ method: "GET" }).handler(async () => {
   const checks = {
-    META_APP_ID: Boolean(process.env["META_APP_ID"]),
-    META_APP_SECRET: Boolean(process.env["META_APP_SECRET"]),
+    INSTAGRAM_APP_ID: Boolean(process.env["INSTAGRAM_APP_ID"] || process.env["META_APP_ID"]),
+    INSTAGRAM_APP_SECRET: Boolean(process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"]),
     META_REDIRECT_URI: Boolean(process.env["META_REDIRECT_URI"]),
     INSTAGRAM_SESSION_SECRET: Boolean(process.env["INSTAGRAM_SESSION_SECRET"] && process.env["INSTAGRAM_SESSION_SECRET"]!.length >= 32),
     INSTAGRAM_TOKEN_ENCRYPTION_KEY: /^[a-f0-9]{64}$/i.test(process.env["INSTAGRAM_TOKEN_ENCRYPTION_KEY"] ?? ""),
