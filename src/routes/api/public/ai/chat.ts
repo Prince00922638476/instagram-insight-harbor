@@ -161,8 +161,18 @@ export const Route = createFileRoute("/api/public/ai/chat")({
               let toolResult: unknown;
               try {
                 const executed = await executeReadTool(sessionId, call.function.name, parseArguments(call.function.arguments));
-                if (executed.action && !pendingAction) pendingAction = executed.action;
-                toolResult = executed.result;
+                if (executed.action) {
+                  if (pendingAction) {
+                    // The UI confirms exactly one action per turn. Never tell the model that
+                    // a second action is ready when it will not be shown to the owner.
+                    toolResult = { error: "Only one Instagram action can be proposed per chat turn. The first action is pending owner confirmation; ask the owner to send another message for any additional action." };
+                  } else {
+                    pendingAction = executed.action;
+                    toolResult = executed.result;
+                  }
+                } else {
+                  toolResult = executed.result;
+                }
               } catch (error) {
                 toolResult = { error: error instanceof Error ? error.message : "Tool could not be completed." };
               }
