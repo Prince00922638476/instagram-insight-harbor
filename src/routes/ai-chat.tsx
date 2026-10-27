@@ -15,7 +15,8 @@ type Message = { role: "user" | "assistant"; content: string };
 type ProposedAction =
   | { action: "reply"; comment_id: string; message: string }
   | { action: "hide"; comment_id: string; hidden: boolean }
-  | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string }\n  | { action: "generate_image_post"; image_prompt: string; caption: string };
+  | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string }
+  | { action: "generate_image_post"; image_prompt: string; caption: string };
 
 const suggestions = [
   { label: "मेरी profile बताओ", prompt: "मेरी connected Instagram profile और account type बताओ।" },
@@ -131,7 +132,8 @@ function AiChat() {
             <div className="mb-3 flex items-center justify-between gap-2"><p className="font-semibold">{actionTitle(pending)}</p><span className="rounded-full bg-warning-soft px-2 py-1 text-[11px] font-semibold">Confirmation needed</span></div>
             {pending.action === "reply" ? <div className="space-y-2 text-sm"><p className="text-muted-foreground">Comment ID: <code>{pending.comment_id}</code></p><div className="rounded-xl bg-muted p-3">{pending.message}</div></div>
               : pending.action === "hide" ? <p className="text-sm">Comment ID <code>{pending.comment_id}</code> को {pending.hidden ? "hide" : "unhide"} किया जाएगा।</p>
-              : pending.action === "generate_image_post" ? <div className="space-y-2 text-sm"><p className="font-semibold">AI image prompt</p><div className="rounded-xl bg-muted p-3">{pending.image_prompt}</div><p className="font-semibold">Instagram caption</p><div className="rounded-xl bg-muted p-3">{pending.caption || "(बिना caption)"}</div><p className="text-xs text-muted-foreground">Confirm करने पर AI image generation, public media upload और Instagram publishing चलेंगे। Image generation API charges लग सकते हैं।</p></div>\n              : <div className="space-y-2 text-sm"><p>Type: {pending.media_type}</p><p className="break-all text-muted-foreground">Media URL: {pending.media_url}</p><div className="rounded-xl bg-muted p-3">{pending.caption || "(बिना caption)"}</div><p className="text-xs text-muted-foreground">Instagram को media URL खोलने योग्य public HTTPS URL होना चाहिए।</p></div>}
+              : pending.action === "generate_image_post" ? <div className="space-y-2 text-sm"><p className="font-semibold">AI image prompt</p><div className="rounded-xl bg-muted p-3">{pending.image_prompt}</div><p className="font-semibold">Instagram caption</p><div className="rounded-xl bg-muted p-3">{pending.caption || "(बिना caption)"}</div><p className="text-xs text-muted-foreground">Confirm करने पर AI image generation, public media upload और Instagram publishing चलेंगे। Image generation API charges लग सकते हैं।</p></div>
+              : <div className="space-y-2 text-sm"><p>Type: {pending.media_type}</p><p className="break-all text-muted-foreground">Media URL: {pending.media_url}</p><div className="rounded-xl bg-muted p-3">{pending.caption || "(बिना caption)"}</div><p className="text-xs text-muted-foreground">Instagram को media URL खोलने योग्य public HTTPS URL होना चाहिए।</p></div>}
             <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={actionBusy} onClick={() => void confirmAction()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Check className="h-4 w-4" />{actionBusy ? "Sending…" : "Confirm and send"}</button><button type="button" disabled={actionBusy} onClick={() => setPending(null)} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50"><X className="h-4 w-4" />Cancel</button></div>
           </div>}
           {error && <div role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
