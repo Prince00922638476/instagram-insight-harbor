@@ -58,7 +58,7 @@ async function executeReadTool(sessionId: string, name: string, args: Record<str
     return { result: await instagramApi(sessionId, "me", { fields: "id,username,account_type,media_count" }) };
   }
   if (name === "list_media") {
-    const n = typeof args.limit === "number" && Number.isInteger(args.limit) ? Math.max(1, Math.min(20, args.limit)) : 10;
+    const n = typeof args["limit"] === "number" && Number.isInteger(args["limit"]) ? Math.max(1, Math.min(20, args["limit"])) : 10;
     const result = await instagramApi(sessionId, "me/media", {
       fields: "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count",
       limit: String(n),
@@ -66,32 +66,32 @@ async function executeReadTool(sessionId: string, name: string, args: Record<str
     return { result };
   }
   if (name === "list_comments") {
-    const mediaId = typeof args.media_id === "string" ? args.media_id : "";
+    const mediaId = typeof args["media_id"] === "string" ? args["media_id"] : "";
     if (!/^[A-Za-z0-9_.-]{1,128}$/.test(mediaId)) throw new Error("A valid media ID is required to read comments.");
-    const n = typeof args.limit === "number" && Number.isInteger(args.limit) ? Math.max(1, Math.min(30, args.limit)) : 20;
+    const n = typeof args["limit"] === "number" && Number.isInteger(args["limit"]) ? Math.max(1, Math.min(30, args["limit"])) : 20;
     return { result: await instagramApi(sessionId, `${mediaId}/comments`, { fields: "id,text,username,timestamp", limit: String(n) }) };
   }
   if (name === "propose_reply_to_comment") {
-    const id = typeof args.comment_id === "string" ? args.comment_id : "";
-    const message = typeof args.message === "string" ? args.message.trim() : "";
+    const id = typeof args["comment_id"] === "string" ? args["comment_id"] : "";
+    const message = typeof args["message"] === "string" ? args["message"].trim() : "";
     if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || !message || message.length > 1000) throw new Error("The reply proposal needs a valid comment ID and a message of 1–1,000 characters.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "reply", comment_id: id, message } };
   }
   if (name === "propose_hide_comment") {
-    const id = typeof args.comment_id === "string" ? args.comment_id : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || typeof args.hidden !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
-    return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "hide", comment_id: id, hidden: args.hidden } };
+    const id = typeof args["comment_id"] === "string" ? args["comment_id"] : "";
+    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || typeof args["hidden"] !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
+    return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "hide", comment_id: id, hidden: args["hidden"] } };
   }
   if (name === "propose_generate_image_post") {
-    const prompt = typeof args.image_prompt === "string" ? args.image_prompt.trim() : "";
-    const caption = typeof args.caption === "string" ? args.caption : "";
+    const prompt = typeof args["image_prompt"] === "string" ? args["image_prompt"].trim() : "";
+    const caption = typeof args["caption"] === "string" ? args["caption"] : "";
     if (prompt.length < 10 || prompt.length > 2500 || caption.length > 2200) throw new Error("Image prompt must be 10–2,500 characters and caption at most 2,200 characters.");
     return { result: { prepared: true, requires_owner_confirmation: true, may_incur_image_generation_charges: true }, action: { action: "generate_image_post", image_prompt: prompt, caption } };
   }
   if (name === "propose_publish_media") {
-    const type = args.media_type;
-    const url = args.media_url;
-    const caption = typeof args.caption === "string" ? args.caption : "";
+    const type = args["media_type"];
+    const url = args["media_url"];
+    const caption = typeof args["caption"] === "string" ? args["caption"] : "";
     if ((type !== "IMAGE" && type !== "REELS") || !safeHttpsUrl(url) || caption.length > 2200) throw new Error("Publishing requires IMAGE or REELS, a public HTTPS media URL, and a caption up to 2,200 characters.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "publish", media_type: type, media_url: url, caption } };
   }
@@ -122,8 +122,8 @@ export const Route = createFileRoute("/api/public/ai/chat")({
         for (const item of body.messages) {
           if (!item || typeof item !== "object") continue;
           const row = item as Record<string, unknown>;
-          if ((row.role !== "user" && row.role !== "assistant") || typeof row.content !== "string" || !row.content.trim()) continue;
-          messages.push({ role: row.role, content: row.content.slice(0, 4000) });
+          if ((row["role"] !== "user" && row["role"] !== "assistant") || typeof row["content"] !== "string" || !row["content"].trim()) continue;
+          messages.push({ role: row["role"], content: row["content"].slice(0, 4000) });
         }
         if (!messages.length || messages[messages.length - 1]?.role !== "user") {
           return Response.json({ error: "आखिरी message user का होना चाहिए।" }, { status: 400, headers: noStoreHeaders() });
