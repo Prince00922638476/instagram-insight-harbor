@@ -9,7 +9,7 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen } from "lucide-react";
+import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen, Bot, Workflow, Activity } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -96,6 +96,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 const nav = [
   { to: "/", label: "Home", icon: LayoutGrid },
+  { to: "/ai-chat", label: "AI Chat", icon: Bot },
+  { to: "/automation", label: "Automation", icon: Workflow },
+  { to: "/diagnostics", label: "Diagnostics", icon: Activity },
   { to: "/connect", label: "Connect", icon: Plug },
   { to: "/content", label: "Content", icon: Image },
   { to: "/publish", label: "Publish", icon: Send },
@@ -123,7 +126,7 @@ function RootComponent() {
               </Link>
             ))}
           </nav>
-          <p className="mt-auto text-xs text-muted-foreground">Uses Meta's official Instagram API only. Live integration pending setup.</p>
+          <p className="mt-auto text-xs text-muted-foreground">Instagram + AI tools. Public actions require owner confirmation unless keyword auto-reply is explicitly enabled.</p>
         </aside>
         <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:hidden">
           <Brand />
@@ -132,16 +135,16 @@ function RootComponent() {
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 md:px-10 md:pt-10">
           <Outlet />
         </main>
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t bg-card md:hidden">
-          {nav.slice(0, 6).map((n) => (
+        <nav aria-label="Primary navigation" className="fixed inset-x-0 bottom-0 z-40 flex gap-1 overflow-x-auto border-t bg-card px-1 md:hidden">
+          {nav.map((n) => (
             <Link
               key={n.to}
               to={n.to}
               activeOptions={{ exact: n.to === "/" }}
-              className="flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground data-[status=active]:text-primary"
+              className="flex min-w-[3.5rem] shrink-0 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-muted-foreground data-[status=active]:text-primary"
             >
               <n.icon className="h-5 w-5" />
-              {n.label}
+              <span className="whitespace-nowrap">{n.label}</span>
             </Link>
           ))}
         </nav>

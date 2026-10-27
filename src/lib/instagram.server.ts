@@ -139,10 +139,52 @@ export async function instagramApi(
   });
   const data = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok || data.error) {
-    const apiError = data.error as { message?: string } | undefined;
-    throw new Error(apiError?.message || `Instagram API returned HTTP ${response.status}.`);
+    const apiError = data["error"] as {
+      message?: string;
+      type?: string;
+      code?: number;
+      error_subcode?: number;
+      fbtrace_id?: string;
+    } | undefined;
+    throw new InstagramApiError(
+      apiError?.message || `Instagram API returned HTTP ${response.status}.`,
+      response.status,
+      apiError?.code,
+      apiError?.error_subcode,
+      apiError?.type,
+      apiError?.fbtrace_id,
+    );
   }
   return data;
+}
+
+export class InstagramApiError extends Error {
+  readonly httpStatus: number;
+  readonly code?: number;
+  readonly subcode?: number;
+  readonly type?: string;
+  readonly traceId?: string;
+
+  constructor(message: string, httpStatus: number, code?: number, subcode?: number, type?: string, traceId?: string) {
+    super(message);
+    this.name = "InstagramApiError";
+    this.httpStatus = httpStatus;
+    this.code = code;
+    this.subcode = subcode;
+    this.type = type;
+    this.traceId = traceId;
+  }
+
+  toSafeJSON(): { message: string; httpStatus: number; code?: number; subcode?: number; type?: string; traceId?: string } {
+    return {
+      message: this.message.slice(0, 500),
+      httpStatus: this.httpStatus,
+      ...(this.code !== undefined ? { code: this.code } : {}),
+      ...(this.subcode !== undefined ? { subcode: this.subcode } : {}),
+      ...(this.type ? { type: this.type } : {}),
+      ...(this.traceId ? { traceId: this.traceId } : {}),
+    };
+  }
 }
 
 export function hashApiKey(key: string): string {

@@ -11,6 +11,12 @@ export const getMetaConfig = createServerFn({ method: "GET" }).handler(async () 
     SUPABASE_URL: Boolean(process.env["SUPABASE_URL"]),
     SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env["SUPABASE_SERVICE_ROLE_KEY"]),
   };
+  const optionalChecks = {
+    OPENAI_API_KEY: Boolean(process.env["OPENAI_API_KEY"]),
+    META_WEBHOOK_VERIFY_TOKEN: Boolean(process.env["META_WEBHOOK_VERIFY_TOKEN"]),
+    OPENAI_MODEL: Boolean(process.env["OPENAI_MODEL"]),
+    OPENAI_IMAGE_MODEL: Boolean(process.env["OPENAI_IMAGE_MODEL"]),
+  };
   const missing = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
-  return { configured: missing.length === 0, missing, checks };
+  return { configured: missing.length === 0, missing, checks, optionalChecks };
 });
