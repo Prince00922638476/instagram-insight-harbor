@@ -48,8 +48,11 @@ export const Route = createFileRoute("/api/mcp")({
         const auth = request.headers.get("authorization") ?? "";
         const suppliedKey = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
         if (!/^ib_mcp_[A-Za-z0-9_-]{40,}$/.test(suppliedKey)) return new Response("Unauthorized", { status: 401, headers: noStoreHeaders({ "WWW-Authenticate": "Bearer" }) });
+        let rawBody: string;
+        try { rawBody = await request.text(); } catch { return rpcError(null, -32700, "Could not read request body."); }
+        if (rawBody.length > 64_000) return new Response("Request body too large.", { status: 413, headers: noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }) });
         let rpc: RpcRequest;
-        try { rpc = await request.json() as RpcRequest; } catch { return rpcError(null, -32700, "Parse error."); }
+        try { rpc = JSON.parse(rawBody) as RpcRequest; } catch { return rpcError(null, -32700, "Parse error."); }
         if (rpc.jsonrpc !== "2.0" || typeof rpc.method !== "string") return rpcError(rpc.id, -32600, "Invalid JSON-RPC request.");
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
