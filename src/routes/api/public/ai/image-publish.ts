@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
-import { instagramApi, noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 type ImageResponse = { data?: Array<{ b64_json?: string }> ; error?: { message?: string } };
 
@@ -13,11 +13,15 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
-        let rawBody: string;
-        try { rawBody = await request.text(); } catch {
-          return Response.json({ error: "Request body पढ़ा नहीं जा सका।" }, { status: 400, headers: noStoreHeaders() });
+        const bodyRead = await readLimitedRequestBody(request, 16_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json(
+            { error: tooLarge ? "Request body बहुत बड़ा है।" : "Request body पढ़ा नहीं जा सका।" },
+            { status: tooLarge ? 413 : 400, headers: noStoreHeaders() },
+          );
         }
-        if (rawBody.length > 16_000) return Response.json({ error: "Request body बहुत बड़ा है।" }, { status: 413, headers: noStoreHeaders() });
+        const rawBody = bodyRead.text;
         let input: { prompt?: unknown; caption?: unknown; confirmed?: unknown };
         try { input = JSON.parse(rawBody) as typeof input; } catch {
           return Response.json({ error: "Valid JSON भेजें।" }, { status: 400, headers: noStoreHeaders() });
