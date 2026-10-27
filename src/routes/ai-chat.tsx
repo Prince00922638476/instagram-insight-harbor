@@ -28,6 +28,7 @@ const suggestions = [
 function actionTitle(action: ProposedAction): string {
   if (action.action === "reply") return "Instagram comment reply";
   if (action.action === "hide") return action.hidden ? "Hide Instagram comment" : "Unhide Instagram comment";
+  if (action.action === "generate_image_post") return "Generate AI image + publish";
   return action.media_type === "IMAGE" ? "Publish image post" : "Publish Reel";
 }
 
@@ -87,15 +88,19 @@ function AiChat() {
     setActionBusy(true);
     setError(null);
     try {
-      const response = await fetch("/api/public/instagram/actions", {
+      const isGeneratedImage = pending.action === "generate_image_post";
+      const response = await fetch(isGeneratedImage ? "/api/public/ai/image-publish" : "/api/public/instagram/actions", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...pending, confirmed: true }),
+        body: JSON.stringify(isGeneratedImage
+          ? { prompt: pending.action === "generate_image_post" ? pending.image_prompt : "", caption: pending.action === "generate_image_post" ? pending.caption : "", confirmed: true }
+          : { ...pending, confirmed: true }),
       });
-      const data = await response.json() as { error?: string; success?: boolean };
+      const data = await response.json() as { error?: string; success?: boolean; media_id?: string; media_url?: string };
       if (!response.ok || !data.success) throw new Error(data.error || "Instagram action पूरा नहीं हुआ।");
-      setMessages(current => [...current, { role: "assistant", content: "✅ Action Instagram को भेज दिया गया है। Activity/Comments page पर भी check कर सकते हो।" }]);
+      const successText = isGeneratedImage ? "✅ AI image generate होकर Instagram पर publish हो गई। Media ID: " + (data.media_id || "published") + "." : "✅ Action Instagram को भेज दिया गया है। Activity/Comments page पर भी check कर सकते हो.";
+      setMessages(current => [...current, { role: "assistant", content: successText }]);
       setPending(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Action पूरा नहीं हुआ।");
@@ -146,7 +151,6 @@ function AiChat() {
         </form>
       </Card>
       <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" /><p>Chat ब्राउज़र में रखी जाती है। AI सेवा चालू करने के लिए server secret <code>OPENAI_API_KEY</code> चाहिए। सार्वजनिक reply या post इस पेज से तुम्हारे Confirm दबाने पर ही भेजे जाते हैं।</p></div>
-      <div className="sr-only"><ImagePlus /></div>
     </>
   );
 }
