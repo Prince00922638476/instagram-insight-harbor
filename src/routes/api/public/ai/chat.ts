@@ -55,7 +55,7 @@ function parseArguments(value: string): Record<string, unknown> {
 
 async function executeReadTool(sessionId: string, name: string, args: Record<string, unknown>): Promise<{ result: unknown; action?: ProposedAction }> {
   if (name === "get_profile") {
-    return { result: await instagramApi(sessionId, "me", { fields: "id,username,account_type,media_count" }) };
+    return { result: await instagramApi(sessionId, "me", { fields: "user_id,username,account_type,media_count" }) };
   }
   if (name === "list_media") {
     const n = typeof args["limit"] === "number" && Number.isInteger(args["limit"]) ? Math.max(1, Math.min(20, args["limit"])) : 10;
