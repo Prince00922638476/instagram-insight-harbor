@@ -65,7 +65,7 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
   if (!commentId || !mediaId || !text || !/^[A-Za-z0-9_.-]{1,128}$/.test(commentId)) return;
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const admin = supabaseAdmin as any;
+  const admin = supabaseAdmin;
   const { data: connection, error: connectionError } = await admin.from("instagram_connections")
     .select("user_id,ig_user_id,username,scopes,status")
     .eq("ig_user_id", entryId).eq("status", "connected").maybeSingle();
