@@ -138,7 +138,7 @@ export async function instagramApi(
     signal: AbortSignal.timeout(20000),
   });
   const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok || data.error) {
+  if (!response.ok || data["error"]) {
     const apiError = data["error"] as {
       message?: string;
       type?: string;
@@ -169,10 +169,10 @@ export class InstagramApiError extends Error {
     super(message);
     this.name = "InstagramApiError";
     this.httpStatus = httpStatus;
-    this.code = code;
-    this.subcode = subcode;
-    this.type = type;
-    this.traceId = traceId;
+    if (code !== undefined) this.code = code;
+    if (subcode !== undefined) this.subcode = subcode;
+    if (type !== undefined) this.type = type;
+    if (traceId !== undefined) this.traceId = traceId;
   }
 
   toSafeJSON(): { message: string; httpStatus: number; code?: number; subcode?: number; type?: string; traceId?: string } {
