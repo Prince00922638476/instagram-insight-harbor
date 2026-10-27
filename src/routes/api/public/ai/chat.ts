@@ -5,7 +5,8 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProposedAction =
   | { action: "reply"; comment_id: string; message: string }
   | { action: "hide"; comment_id: string; hidden: boolean }
-  | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string }\n  | { action: "generate_image_post"; image_prompt: string; caption: string };
+  | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string }
+  | { action: "generate_image_post"; image_prompt: string; caption: string };
 
 type ModelToolCall = {
   id: string;
@@ -26,7 +27,8 @@ const tools = [
   { type: "function", function: { name: "list_comments", description: "Read comments on one of the connected account's media items.", parameters: { type: "object", properties: { media_id: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 30 } }, required: ["media_id"], additionalProperties: false } } },
   { type: "function", function: { name: "propose_reply_to_comment", description: "Prepare a public reply to an existing comment. This only creates a proposal; it does not send anything.", parameters: { type: "object", properties: { comment_id: { type: "string" }, message: { type: "string", minLength: 1, maxLength: 1000 } }, required: ["comment_id", "message"], additionalProperties: false } } },
   { type: "function", function: { name: "propose_hide_comment", description: "Prepare a hide/unhide action for an existing comment. This only creates a proposal; it does not execute it.", parameters: { type: "object", properties: { comment_id: { type: "string" }, hidden: { type: "boolean" } }, required: ["comment_id", "hidden"], additionalProperties: false } } },
-  { type: "function", function: { name: "propose_publish_media", description: "Prepare an Instagram image or Reel post using a publicly accessible HTTPS media URL. This only creates a proposal; it does not publish anything.", parameters: { type: "object", properties: { media_type: { type: "string", enum: ["IMAGE", "REELS"] }, media_url: { type: "string" }, caption: { type: "string", maxLength: 2200 } }, required: ["media_type", "media_url", "caption"], additionalProperties: false } } },\n  { type: "function", function: { name: "propose_generate_image_post", description: "Prepare a generated AI image post. This only creates a proposal; the server will not generate or publish the image until the owner confirms it.", parameters: { type: "object", properties: { image_prompt: { type: "string", minLength: 10, maxLength: 2500 }, caption: { type: "string", maxLength: 2200 } }, required: ["image_prompt", "caption"], additionalProperties: false } } },
+  { type: "function", function: { name: "propose_publish_media", description: "Prepare an Instagram image or Reel post using a publicly accessible HTTPS media URL. This only creates a proposal; it does not publish anything.", parameters: { type: "object", properties: { media_type: { type: "string", enum: ["IMAGE", "REELS"] }, media_url: { type: "string" }, caption: { type: "string", maxLength: 2200 } }, required: ["media_type", "media_url", "caption"], additionalProperties: false } } },
+  { type: "function", function: { name: "propose_generate_image_post", description: "Prepare a generated AI image post. This only creates a proposal; the server will not generate or publish the image until the owner confirms it.", parameters: { type: "object", properties: { image_prompt: { type: "string", minLength: 10, maxLength: 2500 }, caption: { type: "string", maxLength: 2200 } }, required: ["image_prompt", "caption"], additionalProperties: false } } },
 ];
 
 const systemPrompt = `You are InstaBridge AI, an assistant inside the owner's Instagram management dashboard.
