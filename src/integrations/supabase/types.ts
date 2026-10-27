@@ -41,6 +41,105 @@ export type Database = {
         }
         Relationships: []
       }
+      instagram_automation_settings: {
+        Row: {
+          user_id: string
+          enabled: boolean
+          mode: string
+          trigger_keyword: string
+          reply_instruction: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          enabled?: boolean
+          mode?: string
+          trigger_keyword?: string
+          reply_instruction?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          enabled?: boolean
+          mode?: string
+          trigger_keyword?: string
+          reply_instruction?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      instagram_reply_drafts: {
+        Row: {
+          id: string
+          user_id: string
+          comment_id: string
+          media_id: string
+          commenter_username: string
+          comment_text: string
+          suggested_reply: string
+          status: string
+          created_at: string
+          sent_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          comment_id: string
+          media_id?: string
+          commenter_username?: string
+          comment_text?: string
+          suggested_reply: string
+          status?: string
+          created_at?: string
+          sent_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          comment_id?: string
+          media_id?: string
+          commenter_username?: string
+          comment_text?: string
+          suggested_reply?: string
+          status?: string
+          created_at?: string
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
+      instagram_webhook_events: {
+        Row: {
+          event_key: string
+          user_id: string | null
+          event_type: string
+          status: string
+          error_message: string | null
+          created_at: string
+          processed_at: string | null
+        }
+        Insert: {
+          event_key: string
+          user_id?: string | null
+          event_type?: string
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          processed_at?: string | null
+        }
+        Update: {
+          event_key?: string
+          user_id?: string | null
+          event_type?: string
+          status?: string
+          error_message?: string | null
+          created_at?: string
+          processed_at?: string | null
+        }
+        Relationships: []
+      }
       instagram_connections: {
         Row: {
           account_type: string | null
