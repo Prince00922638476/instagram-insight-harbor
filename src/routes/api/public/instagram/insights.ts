@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/instagram/insights")({
         if (!sessionId) return Response.json({ error: "Connect Instagram first." }, { status: 401, headers: noStoreHeaders() });
         const url = new URL(request.url);
         const mediaId = url.searchParams.get("media_id");
-        if (!mediaId || !/^[A-Za-z0-9_.-]{1,128}$/.test(mediaId)) return Response.json({ error: "A valid media_id is required." }, { status: 400, headers: noStoreHeaders() });
+        if (!mediaId || !/^[A-Za-z0-9_-]{1,128}$/.test(mediaId)) return Response.json({ error: "A valid media_id is required." }, { status: 400, headers: noStoreHeaders() });
         const asked = [...new Set((url.searchParams.get("metrics") ?? "reach,likes,comments,saved,shares,views,total_interactions").split(",").map(item => item.trim()).filter(item => allowed.has(item)))];
         if (!asked.length) return Response.json({ error: "No supported insights metric was requested." }, { status: 400, headers: noStoreHeaders() });
         try {
