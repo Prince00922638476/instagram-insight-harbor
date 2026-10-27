@@ -134,16 +134,16 @@ function RootComponent() {
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-6 md:px-10 md:pt-10">
           <Outlet />
         </main>
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t bg-card md:hidden">
-          {nav.slice(0, 7).map((n) => (
+        <nav aria-label="Primary navigation" className="fixed inset-x-0 bottom-0 z-40 flex gap-1 overflow-x-auto border-t bg-card px-1 md:hidden">
+          {nav.map((n) => (
             <Link
               key={n.to}
               to={n.to}
               activeOptions={{ exact: n.to === "/" }}
-              className="flex flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground data-[status=active]:text-primary"
+              className="flex min-w-[3.5rem] shrink-0 flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium text-muted-foreground data-[status=active]:text-primary"
             >
               <n.icon className="h-5 w-5" />
-              {n.label}
+              <span className="whitespace-nowrap">{n.label}</span>
             </Link>
           ))}
         </nav>
