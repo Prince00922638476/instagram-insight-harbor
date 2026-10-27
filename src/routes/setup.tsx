@@ -36,7 +36,7 @@ const steps = [
   ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql, 0002_instagram_automation.sql and 0003_permissions_hardening.sql in this order against the connected Supabase database."],
   ["Test with your own account", "Start from Connect Instagram and approve the requested scopes. The callback validates one-time state, verifies the profile, exchanges for a long-lived token and stores it encrypted."],
   ["Create an MCP key", "After a successful connection, open Connect Instagram and create an API key. It is shown once; store it in your AI client's secret/header configuration. Revoke it here if needed."],
-  ["Configure comment webhooks", "In Meta Developer Dashboard, configure the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN for verification and subscribe to comments. Start with draft mode in /automation."],
+  ["Configure comment webhooks", "In Meta Developer Dashboard, verify the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN and enable the Instagram object comments field. When automation is enabled, the app also registers the connected account through the Instagram subscribed_apps API. Start with draft mode in /automation."],
   ["Review before public launch", "Meta may require App Review and appropriate access for accounts outside your app roles. Test profile/media, comments and publishing with an account you control before relying on it."],
 ];
 
