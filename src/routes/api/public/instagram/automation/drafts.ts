@@ -26,8 +26,13 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        let rawBody: string;
+        try { rawBody = await request.text(); } catch {
+          return Response.json({ error: "Request body could not be read." }, { status: 400, headers: noStoreHeaders() });
+        }
+        if (rawBody.length > 8_000) return Response.json({ error: "Request body is too large." }, { status: 413, headers: noStoreHeaders() });
         let input: { id?: unknown; action?: unknown; message?: unknown };
-        try { input = await request.json() as typeof input; } catch {
+        try { input = JSON.parse(rawBody) as typeof input; } catch {
           return Response.json({ error: "Send valid JSON." }, { status: 400, headers: noStoreHeaders() });
         }
         if (typeof input.id !== "string" || !/^[0-9a-f-]{36}$/i.test(input.id)) {
