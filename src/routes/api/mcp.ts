@@ -120,8 +120,8 @@ export const Route = createFileRoute("/api/mcp")({
                 .select("ig_user_id").eq("user_id", apiKey.user_id).eq("status", "connected").maybeSingle();
               if (connectionError || !connection?.ig_user_id) throw new Error("Instagram account details are unavailable. Reconnect the account.");
               const containerParams: Record<string, string> = { caption };
-              if (args["media_type"] === "IMAGE") containerParams.image_url = mediaUrl;
-              else { containerParams.video_url = mediaUrl; containerParams.media_type = "REELS"; }
+              if (args["media_type"] === "IMAGE") containerParams["image_url"] = mediaUrl;
+              else { containerParams["video_url"] = mediaUrl; containerParams["media_type"] = "REELS"; }
               const container = await instagramApi(apiKey.user_id, `${connection.ig_user_id}/media`, containerParams, "POST");
               const containerId = typeof container["id"] === "string" ? container["id"] : "";
               if (!containerId) throw new Error("Instagram did not return a media container ID.");
