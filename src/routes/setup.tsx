@@ -85,6 +85,6 @@ function Setup() {
   hide_comment           # confirmed=true required
   publish_media          # confirmed=true required`}</pre>
       <p className="mt-3 text-xs text-muted-foreground">Instagram only allows operations supported by its API, the approved permissions, account type and Meta app mode. A successful code deployment alone does not grant Meta permissions.</p>
-    </Card>
+    </Card></div>
   </>;
 }
