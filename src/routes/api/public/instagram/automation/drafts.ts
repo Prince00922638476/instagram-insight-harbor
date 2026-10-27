@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
           if (draftError || !draft) return Response.json({ error: "Draft not found." }, { status: 404, headers: noStoreHeaders() });
           if (input.action === "dismiss") {
             const { data: dismissed, error } = await admin.from("instagram_reply_drafts").update({ status: "dismissed" })
-              .eq("id", input.id).eq("user_id", ownerId).in("status", ["pending", "sending", "needs_review"])
+              .eq("id", input.id).eq("user_id", ownerId).in("status", ["pending", "needs_review"])
               .select("id").maybeSingle();
             if (error) throw error;
             if (!dismissed) return Response.json({ error: "This draft was already handled." }, { status: 409, headers: noStoreHeaders() });
