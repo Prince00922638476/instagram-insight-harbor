@@ -116,6 +116,14 @@ export async function loadInstagramToken(sessionId: string): Promise<string> {
   return token;
 }
 
+export function normalizeInstagramApiPath(path: string): string {
+  const segments = path.split("/").filter(Boolean);
+  if (!segments.length || segments.some(segment => !/^[A-Za-z0-9_-]{1,256}$/.test(segment))) {
+    throw new Error("Invalid Instagram API path.");
+  }
+  return segments.map(segment => encodeURIComponent(segment)).join("/");
+}
+
 export async function instagramApi(
   sessionId: string,
   path: string,
@@ -123,7 +131,7 @@ export async function instagramApi(
   method: "GET" | "POST" = "GET",
 ): Promise<Record<string, unknown>> {
   const token = await loadInstagramToken(sessionId);
-  const safePath = path.split("/").filter(Boolean).map(segment => encodeURIComponent(segment)).join("/");
+  const safePath = normalizeInstagramApiPath(path);
   const url = new URL(`https://graph.instagram.com/${graphVersion()}/${safePath}`);
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
