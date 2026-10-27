@@ -66,9 +66,15 @@ export function encryptToken(value: string): string {
 export function decryptToken(value: string): string {
   const [iv, tag, ciphertext, extra] = value.split(".");
   if (!iv || !tag || !ciphertext || extra) throw new Error("The saved token format is invalid. Reconnect Instagram.");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64"));
-  decipher.setAuthTag(Buffer.from(tag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
+  const ivBytes = Buffer.from(iv, "base64");
+  const tagBytes = Buffer.from(tag, "base64");
+  const ciphertextBytes = Buffer.from(ciphertext, "base64");
+  if (ivBytes.length !== 12 || tagBytes.length !== 16) {
+    throw new Error("The saved token format is invalid. Reconnect Instagram.");
+  }
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), ivBytes, { authTagLength: 16 });
+  decipher.setAuthTag(tagBytes);
+  return Buffer.concat([decipher.update(ciphertextBytes), decipher.final()]).toString("utf8");
 }
 
 export function noStoreHeaders(extra?: HeadersInit): Headers {
