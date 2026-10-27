@@ -63,12 +63,17 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
           if (enabled && !(connection.scopes ?? []).includes("instagram_business_manage_comments")) {
             return Response.json({ error: "Reconnect Instagram and approve comment-management permission before enabling comment automation." }, { status: 403, headers: noStoreHeaders() });
           }
-          if (enabled && mode === "auto") {
+          if (enabled) {
             const missing: string[] = [];
             if (!process.env["OPENAI_API_KEY"]) missing.push("OPENAI_API_KEY");
-            if (!process.env["META_WEBHOOK_VERIFY_TOKEN"]) missing.push("META_WEBHOOK_VERIFY_TOKEN");
-            if (!process.env["META_APP_SECRET"]) missing.push("META_APP_SECRET");
-            if (missing.length) return Response.json({ error: `Auto-reply is blocked until these server secrets are configured: ${missing.join(", ")}.` }, { status: 409, headers: noStoreHeaders() });
+            if (mode === "auto") {
+              if (!process.env["META_WEBHOOK_VERIFY_TOKEN"]) missing.push("META_WEBHOOK_VERIFY_TOKEN");
+              if (!process.env["META_APP_SECRET"]) missing.push("META_APP_SECRET");
+            }
+            if (missing.length) {
+              const modeLabel = mode === "auto" ? "Auto-reply" : "AI draft mode";
+              return Response.json({ error: `${modeLabel} is blocked until these server secrets are configured: ${missing.join(", ")}.` }, { status: 409, headers: noStoreHeaders() });
+            }
           }
           const now = new Date().toISOString();
           const { data, error } = await supabaseAdmin.from("instagram_automation_settings").upsert({
