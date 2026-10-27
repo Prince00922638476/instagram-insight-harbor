@@ -1,4 +1,4 @@
-import { createHmac, createHash, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
 import { instagramApi, noStoreHeaders, readLimitedRequestBody } from "@/lib/instagram.server";
 
@@ -75,33 +75,53 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
   if (commenter && connection.username && commenter.toLowerCase() === String(connection.username).toLowerCase()) return;
 
   const eventKey = createHash("sha256").update(`${entryId}:${commentId}`).digest("hex");
+  // Every worker claims the event with a unique status token. Conditional status
+  // updates stop parallel Meta retries from both processing the same comment.
+  const claimStatus = `processing:${randomUUID()}`;
   const { error: insertError } = await admin.from("instagram_webhook_events").insert({
-    event_key: eventKey, user_id: connection.user_id, event_type: "comment", status: "received",
+    event_key: eventKey, user_id: connection.user_id, event_type: "comment", status: claimStatus,
   });
   if (insertError) {
-    // Completed and ambiguous events are never replayed: an auto-reply may already
-    // have reached Instagram even if the response was lost.
     const { data: prior, error: lookupError } = await admin
       .from("instagram_webhook_events")
-      .select("event_key,status")
+      .select("event_key,status,created_at")
       .eq("event_key", eventKey)
       .maybeSingle();
-    if (prior && prior.status !== "error") return;
-    if (prior?.status === "error") {
-      // Reclaim only retryable failures. The status predicate makes concurrent
-      // Meta retries race safely; only one request can reclaim this event.
+    if (lookupError || !prior) {
+      console.error("[Instagram webhook] Could not safely inspect the event claim.");
+      throw new Error("Could not record the webhook event safely.");
+    }
+
+    if (prior.status === "error") {
+      // Only pre-send failures use "error", so those are safe to retry.
       const { data: reclaimed, error: reclaimError } = await admin
         .from("instagram_webhook_events")
-        .update({ status: "received", error_message: null, processed_at: null })
+        .update({ status: claimStatus, error_message: null, processed_at: null })
         .eq("event_key", eventKey)
         .eq("status", "error")
         .select("event_key")
         .maybeSingle();
       if (reclaimError || !reclaimed) return;
+    } else if (prior.status === "received" || prior.status.startsWith("processing:")) {
+      const createdAt = new Date(prior.created_at).getTime();
+      if (!Number.isFinite(createdAt) || Date.now() - createdAt < 10 * 60 * 1000) return;
+
+      // A worker may have crashed after an external send began. Mark stale claims
+      // for review instead of replaying an action whose outcome may be ambiguous.
+      const { error: reviewError } = await admin.from("instagram_webhook_events")
+        .update({
+          status: "needs_review",
+          error_message: "A previous webhook worker did not finish. Automatic replay was avoided; review Instagram comments before retrying.",
+          processed_at: new Date().toISOString(),
+        })
+        .eq("event_key", eventKey)
+        .eq("status", prior.status)
+        .lte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+      if (reviewError) console.error("[Instagram webhook] Could not mark stale event for review.");
+      return;
     } else {
-      console.error("[Instagram webhook] Could not claim event:", lookupError ? "event lookup failed" : "event insert failed");
-      // Without a prior row this was not a duplicate; fail the webhook request so Meta can retry.
-      throw new Error("Could not record the webhook event safely.");
+      // A terminal state (sent, drafted, ignored, or needs_review) is never replayed.
+      return;
     }
   }
 
@@ -112,12 +132,12 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
       .eq("user_id", connection.user_id).maybeSingle();
     if (settingsError) throw new Error("Automation settings could not be read.");
     if (!settings?.enabled) {
-      await admin.from("instagram_webhook_events").update({ status: "ignored", processed_at: new Date().toISOString() }).eq("event_key", eventKey);
+      await admin.from("instagram_webhook_events").update({ status: "ignored", processed_at: new Date().toISOString() }).eq("event_key", eventKey).eq("status", claimStatus);
       return;
     }
     const keyword = String(settings.trigger_keyword ?? "").trim();
     if (!keyword || !text.toLocaleLowerCase().includes(keyword.toLocaleLowerCase())) {
-      await admin.from("instagram_webhook_events").update({ status: "ignored_keyword", processed_at: new Date().toISOString() }).eq("event_key", eventKey);
+      await admin.from("instagram_webhook_events").update({ status: "ignored_keyword", processed_at: new Date().toISOString() }).eq("event_key", eventKey).eq("status", claimStatus);
       return;
     }
     if (!(connection.scopes ?? []).includes("instagram_business_manage_comments")) {
@@ -138,7 +158,7 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
         detail: `Auto-replied to @${commenter || "instagram-user"} comment ${commentId}: ${reply.slice(0, 250)}`,
         status: "success",
       });
-      await admin.from("instagram_webhook_events").update({ status: "sent", processed_at: new Date().toISOString() }).eq("event_key", eventKey);
+      await admin.from("instagram_webhook_events").update({ status: "sent", processed_at: new Date().toISOString() }).eq("event_key", eventKey).eq("status", claimStatus);
     } else {
       const { error: draftError } = await admin.from("instagram_reply_drafts").upsert({
         user_id: connection.user_id,
@@ -150,7 +170,7 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
         status: "pending",
       }, { onConflict: "user_id,comment_id", ignoreDuplicates: true });
       if (draftError) throw new Error("The reply could not be added to the review queue.");
-      await admin.from("instagram_webhook_events").update({ status: "drafted", processed_at: new Date().toISOString() }).eq("event_key", eventKey);
+      await admin.from("instagram_webhook_events").update({ status: "drafted", processed_at: new Date().toISOString() }).eq("event_key", eventKey).eq("status", claimStatus);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : "Comment automation failed.";
@@ -159,7 +179,7 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
       status: externalReplyAttempted ? "needs_review" : "error",
       error_message: message,
       processed_at: new Date().toISOString(),
-    }).eq("event_key", eventKey);
+    }).eq("event_key", eventKey).eq("status", claimStatus);
 
     // A pre-send failure is safe for Meta to retry. An auto-reply request that has
     // started is not safe to replay because Instagram may already have accepted it.
