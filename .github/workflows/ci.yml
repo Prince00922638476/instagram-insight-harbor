@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, "fix/instagram-oauth-mcp", "feature/ai-chat-automation"]
+    branches: [main, "fix/instagram-oauth-mcp", "feature/ai-chat-automation", "fix/ai-chat-automation-stability"]
 
 jobs:
   verify:
