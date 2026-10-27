@@ -24,18 +24,27 @@ export const Route = createFileRoute("/api/public/meta/callback")({
 
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          if (
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(state) ||
+            code.length > 2_048
+          ) return back("invalid_state");
+
+          // Atomically consume a fresh state for this browser session. A separate
+          // SELECT followed by DELETE can let two concurrent callbacks reuse it.
+          const now = Date.now();
           const { data: savedState, error: stateError } = await supabaseAdmin
             .from("oauth_states")
-            .select("state,user_id,scopes,created_at")
+            .delete()
             .eq("state", state)
+            .eq("user_id", ownerId)
+            .gte("created_at", new Date(now - 10 * 60 * 1000).toISOString())
+            .lte("created_at", new Date(now + 30_000).toISOString())
+            .select("state,user_id,scopes,created_at")
             .maybeSingle();
-          if (stateError || !savedState) return back("invalid_state");
-
-          // Consume state before making outbound calls: it may be used only once.
-          const { error: deleteStateError } = await supabaseAdmin.from("oauth_states").delete().eq("state", state);
-          if (deleteStateError) return back("storage_failed");
+          if (stateError) return back("storage_failed");
+          if (!savedState) return back("invalid_state");
           const createdAt = new Date(savedState.created_at).getTime();
-          if (savedState.user_id !== ownerId || !Number.isFinite(createdAt) || Date.now() - createdAt > 10 * 60 * 1000 || createdAt > Date.now() + 30_000) {
+          if (savedState.user_id !== ownerId || !Number.isFinite(createdAt) || createdAt > now + 30_000 || now - createdAt > 10 * 60 * 1000) {
             return back("invalid_state");
           }
 
