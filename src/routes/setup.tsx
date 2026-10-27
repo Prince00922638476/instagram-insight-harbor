@@ -73,7 +73,7 @@ function Setup() {
         <li>• Revoke an MCP key or disconnect the account to remove access.</li>
       </ul>
     </Card>
-    <Card className="mt-6" id="mcp">
+    <div id="mcp"><Card className="mt-6">
       <div className="mb-3 flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" /><h2 className="font-bold">MCP endpoint</h2></div>
       <p className="mb-3 text-sm text-muted-foreground">Endpoint: <code>https://YOUR-DOMAIN/api/mcp</code>. Use Streamable HTTP / JSON-RPC and send the generated key in <code>Authorization: Bearer YOUR_KEY</code>. Do not put the key in a URL or frontend source.</p>
       <pre className="overflow-x-auto rounded-xl bg-foreground p-4 text-xs text-background">{`tools:
