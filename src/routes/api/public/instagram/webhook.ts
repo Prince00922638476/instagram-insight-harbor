@@ -1,5 +1,6 @@
 import { createHmac, createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
+import { instagramCommentMediaId } from "@/lib/instagram-webhook";
 import { instagramApi, noStoreHeaders, readLimitedRequestBody } from "@/lib/instagram.server";
 
 type WebhookComment = {
@@ -55,11 +56,7 @@ async function draftReply(comment: string, username: string, instruction: string
 
 async function processComment(entryId: string, comment: WebhookComment): Promise<void> {
   const commentId = typeof comment.id === "string" ? comment.id : "";
-  // Instagram comment webhook payloads normally expose media_id directly.
-  // Keep the nested media form as a compatibility fallback for alternate payloads.
-  const mediaId = typeof comment.media_id === "string"
-    ? comment.media_id
-    : typeof comment.media?.id === "string" ? comment.media.id : "";
+  const mediaId = instagramCommentMediaId(comment);
   const text = typeof comment.text === "string" ? comment.text.trim() : "";
   const commenter = typeof comment.from?.username === "string" ? comment.from.username : "";
   const commenterId = typeof comment.from?.id === "string" ? comment.from.id : "";
