@@ -96,7 +96,7 @@ function Automation() {
       const data = await response.json() as { error?: string; settings?: Settings };
       if (!response.ok) throw new Error(data.error || "Settings save नहीं हुईं।");
       if (data.settings) setSettings({ ...defaultSettings, ...data.settings });
-      setNotice("Settings save हो गईं। Meta webhook में comments subscription भी चालू होना चाहिए।");
+      setNotice("Settings save हो गईं। Instagram account की comments subscription register की गई; Meta Developer Dashboard में app-level webhook callback और comments field भी verified होने चाहिए।");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Settings save नहीं हुईं।");
