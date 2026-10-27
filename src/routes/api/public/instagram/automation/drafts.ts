@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
           const admin = supabaseAdmin;
           const { data, error } = await admin.from("instagram_reply_drafts")
             .select("id,comment_id,media_id,commenter_username,comment_text,suggested_reply,status,created_at")
-            .eq("user_id", ownerId).eq("status", "pending").order("created_at", { ascending: false }).limit(100);
+            .eq("user_id", ownerId).in("status", ["pending", "sending", "needs_review"]).order("created_at", { ascending: false }).limit(100);
           if (error) throw error;
           return Response.json({ drafts: data ?? [] }, { headers: noStoreHeaders() });
         } catch (error) {
@@ -42,12 +42,16 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
           const { data: draft, error: draftError } = await admin.from("instagram_reply_drafts")
             .select("id,user_id,comment_id,suggested_reply,status").eq("id", input.id).eq("user_id", ownerId).maybeSingle();
           if (draftError || !draft) return Response.json({ error: "Draft not found." }, { status: 404, headers: noStoreHeaders() });
-          if (draft.status !== "pending") return Response.json({ error: "This draft was already handled." }, { status: 409, headers: noStoreHeaders() });
           if (input.action === "dismiss") {
-            const { error } = await admin.from("instagram_reply_drafts").update({ status: "dismissed" })
-              .eq("id", input.id).eq("user_id", ownerId).eq("status", "pending");
+            const { data: dismissed, error } = await admin.from("instagram_reply_drafts").update({ status: "dismissed" })
+              .eq("id", input.id).eq("user_id", ownerId).in("status", ["pending", "sending", "needs_review"])
+              .select("id").maybeSingle();
             if (error) throw error;
+            if (!dismissed) return Response.json({ error: "This draft was already handled." }, { status: 409, headers: noStoreHeaders() });
             return Response.json({ success: true, status: "dismissed" }, { headers: noStoreHeaders() });
+          }
+          if (draft.status !== "pending") {
+            return Response.json({ error: "The reply outcome may be uncertain. Check the Instagram comments before trying again; this draft cannot be sent a second time automatically." }, { status: 409, headers: noStoreHeaders() });
           }
 
           const message = typeof input.message === "string" ? input.message.trim() : draft.suggested_reply;
@@ -69,8 +73,12 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
             await admin.from("activity_log").insert({ user_id: ownerId, action: "automation.reply", detail: `Replied to comment ${draft.comment_id}: ${message.slice(0, 300)}`, status: "success" });
             return Response.json({ success: true, status: "sent" }, { headers: noStoreHeaders() });
           } catch (error) {
-            await admin.from("instagram_reply_drafts").update({ status: "pending" }).eq("id", input.id).eq("user_id", ownerId);
-            throw error;
+            // Never reset to pending after the external request starts: a timeout can
+            // happen after Instagram accepted the reply, and retrying could duplicate it.
+            const { error: reviewError } = await admin.from("instagram_reply_drafts").update({ status: "needs_review" })
+              .eq("id", input.id).eq("user_id", ownerId).eq("status", "sending");
+            if (reviewError) console.error("[Automation drafts POST] Could not mark ambiguous reply for review.");
+            throw new Error("Instagram may have received the reply, but its final status could not be confirmed. Check the Instagram comments before retrying; this draft was not reset for sending.");
           }
         } catch (error) {
           console.error("[Automation drafts POST]", error instanceof Error ? error.message : "Action failed");
