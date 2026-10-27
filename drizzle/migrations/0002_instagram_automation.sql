@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.instagram_reply_drafts (
   commenter_username text NOT NULL DEFAULT '',
   comment_text text NOT NULL DEFAULT '',
   suggested_reply text NOT NULL,
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'dismissed')),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'dismissed')),
   created_at timestamptz NOT NULL DEFAULT now(),
   sent_at timestamptz,
   UNIQUE (user_id, comment_id)
