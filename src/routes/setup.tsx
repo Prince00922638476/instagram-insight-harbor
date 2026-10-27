@@ -21,15 +21,15 @@ const requiredSecrets = [
   ["SUPABASE_SERVICE_ROLE_KEY", "Server-only Supabase service-role key. Never expose it in browser code."],
 ] as const;
 
-const steps = [
+const optionalSecrets = [\n  ["OPENAI_API_KEY", "AI Chat और AI-generated comment replies के लिए server-only OpenAI API key."],\n  ["META_WEBHOOK_VERIFY_TOKEN", "Meta comments webhook verify करने के लिए अपना random secret; यही value Meta Dashboard में डालें."],\n  ["OPENAI_MODEL", "Optional model override; default gpt-4.1-mini."],\n] as const;\n\nconst steps = [
   ["Use an eligible account", "Instagram Login supports professional (Business or Creator) accounts. Personal accounts need to be converted to a professional account first."],
   ["Configure the Meta app", "In Meta for Developers, add the Instagram API with Instagram Login and use the Instagram App ID/Secret, not a Facebook Login token."],
   ["Set the redirect URI", "Register the exact value of META_REDIRECT_URI in the Instagram product's Business Login settings. It must exactly match the value sent during authorization."],
   ["Add server secrets", "Add every required name below in the deployment's server-side Secrets/Environment settings. Do not commit secret values to GitHub or paste them into chat."],
-  ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql and drizzle/migrations/0001_mcp_api_keys.sql once against the connected Supabase database. The live OAuth flow needs these tables."],
+  ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql and 0002_instagram_automation.sql once in this order against the connected Supabase database."],
   ["Test with your own account", "Start from Connect Instagram and approve the requested scopes. The callback validates one-time state, verifies the profile, exchanges for a long-lived token and stores it encrypted."],
   ["Create an MCP key", "After a successful connection, open Connect Instagram and create an API key. It is shown once; store it in your AI client's secret/header configuration. Revoke it here if needed."],
-  ["Review before public launch", "Meta may require App Review and appropriate access for accounts outside your app roles. Test profile/media, comments and publishing with an account you control before relying on it."],
+  ["Configure comment webhooks", "In Meta Developer Dashboard, configure the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN for verification and subscribe to comments. Start with draft mode in /automation."],\n  ["Review before public launch", "Meta may require App Review and appropriate access for accounts outside your app roles. Test profile/media, comments and publishing with an account you control before relying on it."],
 ];
 
 function Setup() {
@@ -44,7 +44,15 @@ function Setup() {
           return <li key={name} className="flex items-start gap-2"><span className="mt-0.5">{ok ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <XCircle className="h-4 w-4 text-destructive" />}</span><div><div className="flex flex-wrap items-center gap-2"><code>{name}</code><span className={ok ? "text-primary" : "text-destructive"}>{ok ? "set" : "missing"}</span></div><p className="mt-1 text-xs text-muted-foreground">{description}</p></div></li>;
         })}
       </ul>}
-      <p className="mt-4 rounded-xl bg-muted p-3 text-xs text-muted-foreground">Optional: set INSTAGRAM_GRAPH_API_VERSION if you need to override the default Graph API version. The secret values are never sent to the browser.</p>
+      <h3 className="mb-2 mt-5 font-semibold">AI Chat and Automation</h3>
+      <ul className="space-y-3 text-sm">
+        {optionalSecrets.map(([name, description]) => {
+          const ok = cfg.data?.optionalChecks[name as keyof NonNullable<typeof cfg.data>["optionalChecks"]] ?? false;
+          const optional = name === "OPENAI_MODEL";
+          return <li key={name} className="flex items-start gap-2"><span className="mt-0.5">{ok ? <CheckCircle2 className="h-4 w-4 text-primary" /> : optional ? <ShieldCheck className="h-4 w-4 text-muted-foreground" /> : <XCircle className="h-4 w-4 text-warning" />}</span><div><div className="flex flex-wrap items-center gap-2"><code>{name}</code><span className={ok ? "text-primary" : optional ? "text-muted-foreground" : "text-warning"}>{ok ? "set" : optional ? "optional — default used" : "needed for AI/webhooks"}</span></div><p className="mt-1 text-xs text-muted-foreground">{description}</p></div></li>;
+        })}
+      </ul>
+      <p className="mt-4 rounded-xl bg-muted p-3 text-xs text-muted-foreground">Optional: set INSTAGRAM_GRAPH_API_VERSION if you need to override the default Graph API version. Secret values are never sent to the browser.</p>
     </Card>
     <ol className="space-y-3">{steps.map(([title, description], index) => <Card key={title} className="flex gap-4"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand font-bold text-primary-foreground">{index + 1}</span><div><p className="font-semibold">{title}</p><p className="text-sm text-muted-foreground">{description}</p></div></Card>)}</ol>
     <Card className="mt-6">
