@@ -93,11 +93,32 @@ export const Route = createFileRoute("/api/public/meta/callback")({
           const username = typeof profile.username === "string" ? profile.username : null;
           const scopes = Array.isArray(savedState.scopes) ? savedState.scopes : ["instagram_business_basic"];
 
+          // Preserve the existing connection so a partial OAuth write cannot
+          // accidentally delete a working connection during account reconnection.
+          const [
+            { data: previousToken, error: previousTokenError },
+            { data: previousConnection, error: previousConnectionError },
+          ] = await Promise.all([
+            supabaseAdmin.from("instagram_tokens").select("access_token,updated_at").eq("user_id", ownerId).maybeSingle(),
+            supabaseAdmin.from("instagram_connections")
+              .select("ig_user_id,username,account_type,scopes,token_expires_at,status,created_at,updated_at")
+              .eq("user_id", ownerId).maybeSingle(),
+          ]);
+          if (previousTokenError || previousConnectionError) return back("storage_failed");
+
           const { error: tokenError } = await supabaseAdmin.from("instagram_tokens").upsert({
             user_id: ownerId,
             access_token: encryptToken(longData.access_token),
             updated_at: now,
           });
+          if (tokenError) {
+            const restoreResult = previousToken
+              ? await supabaseAdmin.from("instagram_tokens").upsert({ user_id: ownerId, ...previousToken })
+              : await supabaseAdmin.from("instagram_tokens").delete().eq("user_id", ownerId);
+            if (restoreResult.error) console.error("[Instagram OAuth] Token rollback failed.");
+            return back("storage_failed");
+          }
+
           const { error: connectionError } = await supabaseAdmin.from("instagram_connections").upsert({
             user_id: ownerId,
             ig_user_id: resolvedUserId,
@@ -108,10 +129,20 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             status: "connected",
             updated_at: now,
           });
-          if (tokenError || connectionError) {
-            // Never return a success redirect when only part of the connection was stored.
-            await supabaseAdmin.from("instagram_tokens").delete().eq("user_id", ownerId);
-            await supabaseAdmin.from("instagram_connections").delete().eq("user_id", ownerId);
+          if (connectionError) {
+            // Roll back both rows to their previous values; never erase a previously
+            // connected account just because the second write failed.
+            const [tokenRollback, connectionRollback] = await Promise.all([
+              previousToken
+                ? supabaseAdmin.from("instagram_tokens").upsert({ user_id: ownerId, ...previousToken })
+                : supabaseAdmin.from("instagram_tokens").delete().eq("user_id", ownerId),
+              previousConnection
+                ? supabaseAdmin.from("instagram_connections").upsert({ user_id: ownerId, ...previousConnection })
+                : supabaseAdmin.from("instagram_connections").delete().eq("user_id", ownerId),
+            ]);
+            if (tokenRollback.error || connectionRollback.error) {
+              console.error("[Instagram OAuth] Connection rollback failed; manual connection status review may be needed.");
+            }
             return back("storage_failed");
           }
           return back("connected");
