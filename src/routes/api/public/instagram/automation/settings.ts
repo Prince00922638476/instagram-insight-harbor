@@ -44,10 +44,10 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
         try { input = await request.json() as Record<string, unknown>; } catch {
           return Response.json({ error: "Send valid JSON." }, { status: 400, headers: noStoreHeaders() });
         }
-        const enabled = input.enabled === true;
-        const mode = input.mode === "auto" ? "auto" : input.mode === "draft" ? "draft" : "";
-        const keyword = typeof input.trigger_keyword === "string" ? input.trigger_keyword.trim().slice(0, 80) : "";
-        const instruction = typeof input.reply_instruction === "string" ? input.reply_instruction.trim().slice(0, 600) : "";
+        const enabled = input["enabled"] === true;
+        const mode = input["mode"] === "auto" ? "auto" : input["mode"] === "draft" ? "draft" : "";
+        const keyword = typeof input["trigger_keyword"] === "string" ? input["trigger_keyword"].trim().slice(0, 80) : "";
+        const instruction = typeof input["reply_instruction"] === "string" ? input["reply_instruction"].trim().slice(0, 600) : "";
         if (!mode) return Response.json({ error: "Choose draft or auto mode." }, { status: 400, headers: noStoreHeaders() });
         if (enabled && keyword.length < 2) return Response.json({ error: "Enabled automation requires a trigger keyword of at least 2 characters." }, { status: 400, headers: noStoreHeaders() });
         if (!keyword) return Response.json({ error: "A trigger keyword is required. Automatic replies will only run when a comment contains that keyword." }, { status: 400, headers: noStoreHeaders() });
