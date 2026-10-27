@@ -5,7 +5,7 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProposedAction =
   | { action: "reply"; comment_id: string; message: string }
   | { action: "hide"; comment_id: string; hidden: boolean }
-  | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string };
+  | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string }\n  | { action: "generate_image_post"; image_prompt: string; caption: string };
 
 type ModelToolCall = {
   id: string;
@@ -26,14 +26,14 @@ const tools = [
   { type: "function", function: { name: "list_comments", description: "Read comments on one of the connected account's media items.", parameters: { type: "object", properties: { media_id: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 30 } }, required: ["media_id"], additionalProperties: false } } },
   { type: "function", function: { name: "propose_reply_to_comment", description: "Prepare a public reply to an existing comment. This only creates a proposal; it does not send anything.", parameters: { type: "object", properties: { comment_id: { type: "string" }, message: { type: "string", minLength: 1, maxLength: 1000 } }, required: ["comment_id", "message"], additionalProperties: false } } },
   { type: "function", function: { name: "propose_hide_comment", description: "Prepare a hide/unhide action for an existing comment. This only creates a proposal; it does not execute it.", parameters: { type: "object", properties: { comment_id: { type: "string" }, hidden: { type: "boolean" } }, required: ["comment_id", "hidden"], additionalProperties: false } } },
-  { type: "function", function: { name: "propose_publish_media", description: "Prepare an Instagram image or Reel post using a publicly accessible HTTPS media URL. This only creates a proposal; it does not publish anything.", parameters: { type: "object", properties: { media_type: { type: "string", enum: ["IMAGE", "REELS"] }, media_url: { type: "string" }, caption: { type: "string", maxLength: 2200 } }, required: ["media_type", "media_url", "caption"], additionalProperties: false } } },
+  { type: "function", function: { name: "propose_publish_media", description: "Prepare an Instagram image or Reel post using a publicly accessible HTTPS media URL. This only creates a proposal; it does not publish anything.", parameters: { type: "object", properties: { media_type: { type: "string", enum: ["IMAGE", "REELS"] }, media_url: { type: "string" }, caption: { type: "string", maxLength: 2200 } }, required: ["media_type", "media_url", "caption"], additionalProperties: false } } },\n  { type: "function", function: { name: "propose_generate_image_post", description: "Prepare a generated AI image post. This only creates a proposal; the server will not generate or publish the image until the owner confirms it.", parameters: { type: "object", properties: { image_prompt: { type: "string", minLength: 10, maxLength: 2500 }, caption: { type: "string", maxLength: 2200 } }, required: ["image_prompt", "caption"], additionalProperties: false } } },
 ];
 
 const systemPrompt = `You are InstaBridge AI, an assistant inside the owner's Instagram management dashboard.
 Be concise, practical, and reply in the language the owner uses.
 You may use read-only Instagram tools to inspect the connected profile, recent media, and comments.
 For a reply, hiding a comment, or publishing a post, prepare a proposal using the matching propose_* tool. NEVER claim you performed the action. The website will show the exact action and require the owner to press Confirm before it is sent to Instagram.
-For publishing, require a public HTTPS URL that Instagram can fetch. Do not say you generated or uploaded an image unless a real image-generation/upload integration is available.
+For publishing an existing media file, require a public HTTPS URL that Instagram can fetch. If the owner asks to generate a new image and publish it, use propose_generate_image_post with a clear visual prompt and caption. The actual image generation, upload, and publishing will only run after the owner confirms the proposal. Image generation may incur provider charges.
 Do not ask for passwords, access tokens, API keys, or other secrets. If the Instagram account is not connected or a permission is missing, explain the required setup clearly.`;
 
 function safeHttpsUrl(value: unknown): value is string {
