@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { randomBytes, randomUUID } from "node:crypto";
-import { hashApiKey, noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { hashApiKey, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 export const Route = createFileRoute("/api/public/mcp-keys")({
   server: {
@@ -25,8 +25,15 @@ export const Route = createFileRoute("/api/public/mcp-keys")({
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        const bodyRead = await readLimitedRequestBody(request, 4_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json({ error: tooLarge ? "Request body is too large." : "Send a valid JSON body." }, {
+            status: tooLarge ? 413 : 400, headers: noStoreHeaders(),
+          });
+        }
         let input: { name?: unknown };
-        try { input = await request.json() as { name?: unknown }; } catch {
+        try { input = JSON.parse(bodyRead.text) as { name?: unknown }; } catch {
           return Response.json({ error: "Send a valid JSON body." }, { status: 400, headers: noStoreHeaders() });
         }
         const name = typeof input.name === "string" ? input.name.trim().slice(0, 60) : "AI assistant";
@@ -58,8 +65,15 @@ export const Route = createFileRoute("/api/public/mcp-keys")({
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        const bodyRead = await readLimitedRequestBody(request, 4_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json({ error: tooLarge ? "Request body is too large." : "Send a valid JSON body." }, {
+            status: tooLarge ? 413 : 400, headers: noStoreHeaders(),
+          });
+        }
         let input: { id?: unknown };
-        try { input = await request.json() as { id?: unknown }; } catch {
+        try { input = JSON.parse(bodyRead.text) as { id?: unknown }; } catch {
           return Response.json({ error: "Send a valid JSON body." }, { status: 400, headers: noStoreHeaders() });
         }
         if (typeof input.id !== "string") return Response.json({ error: "Key id is required." }, { status: 400, headers: noStoreHeaders() });
