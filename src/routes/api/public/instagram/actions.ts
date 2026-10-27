@@ -39,13 +39,13 @@ export const Route = createFileRoute("/api/public/instagram/actions")({
 
           if (input["action"] === "reply") {
             if (!(connection.scopes ?? []).includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
-            if (typeof input["comment_id"] !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(input["comment_id"])) throw new Error("A valid comment ID is required.");
+            if (typeof input["comment_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(input["comment_id"])) throw new Error("A valid comment ID is required.");
             if (typeof input["message"] !== "string" || !input["message"].trim() || input["message"].length > 1000) throw new Error("Reply must be 1–1,000 characters.");
             result = await instagramApi(sessionId, `${input["comment_id"]}/replies`, { message: input["message"].trim() }, "POST");
             action = "comment.reply"; detail = `Comment ${input["comment_id"]}: ${input["message"].trim().slice(0, 400)}`;
           } else if (input["action"] === "hide") {
             if (!(connection.scopes ?? []).includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
-            if (typeof input["comment_id"] !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(input["comment_id"])) throw new Error("A valid comment ID is required.");
+            if (typeof input["comment_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(input["comment_id"])) throw new Error("A valid comment ID is required.");
             if (typeof input["hidden"] !== "boolean") throw new Error("hidden must be true or false.");
             result = await instagramApi(sessionId, input["comment_id"], { hide: String(input["hidden"]) }, "POST");
             action = "comment.hide"; detail = `${input["hidden"] ? "Hid" : "Unhid"} comment ${input["comment_id"]}`;
