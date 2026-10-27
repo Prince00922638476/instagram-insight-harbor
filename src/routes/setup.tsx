@@ -33,7 +33,7 @@ const steps = [
   ["Configure the Meta app", "In Meta for Developers, add the Instagram API with Instagram Login and use the Instagram App ID/Secret, not a Facebook Login token."],
   ["Set the redirect URI", "Register the exact value of META_REDIRECT_URI in the Instagram product's Business Login settings. It must exactly match the value sent during authorization."],
   ["Add server secrets", "Add every required name below in the deployment's server-side Secrets/Environment settings. Do not commit secret values to GitHub or paste them into chat."],
-  ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql and 0002_instagram_automation.sql once in this order against the connected Supabase database."],
+  ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql, 0002_instagram_automation.sql and 0003_permissions_hardening.sql in this order against the connected Supabase database."],
   ["Test with your own account", "Start from Connect Instagram and approve the requested scopes. The callback validates one-time state, verifies the profile, exchanges for a long-lived token and stores it encrypted."],
   ["Create an MCP key", "After a successful connection, open Connect Instagram and create an API key. It is shown once; store it in your AI client's secret/header configuration. Revoke it here if needed."],
   ["Configure comment webhooks", "In Meta Developer Dashboard, configure the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN for verification and subscribe to comments. Start with draft mode in /automation."],
