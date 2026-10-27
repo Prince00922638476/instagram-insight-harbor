@@ -82,6 +82,12 @@ async function executeReadTool(sessionId: string, name: string, args: Record<str
     if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || typeof args.hidden !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "hide", comment_id: id, hidden: args.hidden } };
   }
+  if (name === "propose_generate_image_post") {
+    const prompt = typeof args.image_prompt === "string" ? args.image_prompt.trim() : "";
+    const caption = typeof args.caption === "string" ? args.caption : "";
+    if (prompt.length < 10 || prompt.length > 2500 || caption.length > 2200) throw new Error("Image prompt must be 10–2,500 characters and caption at most 2,200 characters.");
+    return { result: { prepared: true, requires_owner_confirmation: true, may_incur_image_generation_charges: true }, action: { action: "generate_image_post", image_prompt: prompt, caption } };
+  }
   if (name === "propose_publish_media") {
     const type = args.media_type;
     const url = args.media_url;
