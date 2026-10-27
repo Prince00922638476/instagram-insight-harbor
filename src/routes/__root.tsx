@@ -9,7 +9,7 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen, Bot } from "lucide-react";
+import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen, Bot, Workflow } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -97,6 +97,7 @@ function RootShell({ children }: { children: ReactNode }) {
 const nav = [
   { to: "/", label: "Home", icon: LayoutGrid },
   { to: "/ai-chat", label: "AI Chat", icon: Bot },
+  { to: "/automation", label: "Automation", icon: Workflow },
   { to: "/connect", label: "Connect", icon: Plug },
   { to: "/content", label: "Content", icon: Image },
   { to: "/publish", label: "Publish", icon: Send },
@@ -124,7 +125,7 @@ function RootComponent() {
               </Link>
             ))}
           </nav>
-          <p className="mt-auto text-xs text-muted-foreground">Uses Meta's official Instagram API only. Live integration pending setup.</p>
+          <p className="mt-auto text-xs text-muted-foreground">Instagram + AI tools. Public actions require owner confirmation unless keyword auto-reply is explicitly enabled.</p>
         </aside>
         <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:hidden">
           <Brand />
