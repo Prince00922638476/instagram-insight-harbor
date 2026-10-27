@@ -21,7 +21,7 @@ describe("Instagram server security helpers", () => {
   });
 
   it("signs a session cookie and rejects invalid signatures", () => {
-    const cookieHeader = sessionCookie(sessionId).split(";")[0];
+    const cookieHeader = sessionCookie(sessionId).split(";")[0] ?? "";
     expect(readSession(new Request("https://example.test", { headers: { cookie: cookieHeader } }))).toBe(sessionId);
     expect(readSession(new Request("https://example.test", { headers: { cookie: `instabridge_session=${sessionId}.${"0".repeat(64)}` } }))).toBeNull();
     expect(readSession(new Request("https://example.test"))).toBeNull();
