@@ -21,7 +21,13 @@ const requiredSecrets = [
   ["SUPABASE_SERVICE_ROLE_KEY", "Server-only Supabase service-role key. Never expose it in browser code."],
 ] as const;
 
-const optionalSecrets = [\n  ["OPENAI_API_KEY", "AI Chat और AI-generated comment replies के लिए server-only OpenAI API key."],\n  ["META_WEBHOOK_VERIFY_TOKEN", "Meta comments webhook verify करने के लिए अपना random secret; यही value Meta Dashboard में डालें."],\n  ["OPENAI_MODEL", "Optional model override; default gpt-4.1-mini."],\n] as const;\n\nconst steps = [
+const optionalSecrets = [
+  ["OPENAI_API_KEY", "AI Chat और AI-generated comment replies के लिए server-only OpenAI API key."],
+  ["META_WEBHOOK_VERIFY_TOKEN", "Meta comments webhook verify करने के लिए अपना random secret; यही value Meta Dashboard में डालें."],
+  ["OPENAI_MODEL", "Optional model override; default gpt-4.1-mini."],
+] as const;
+
+const steps = [
   ["Use an eligible account", "Instagram Login supports professional (Business or Creator) accounts. Personal accounts need to be converted to a professional account first."],
   ["Configure the Meta app", "In Meta for Developers, add the Instagram API with Instagram Login and use the Instagram App ID/Secret, not a Facebook Login token."],
   ["Set the redirect URI", "Register the exact value of META_REDIRECT_URI in the Instagram product's Business Login settings. It must exactly match the value sent during authorization."],
@@ -29,7 +35,8 @@ const optionalSecrets = [\n  ["OPENAI_API_KEY", "AI Chat और AI-generated com
   ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql and 0002_instagram_automation.sql once in this order against the connected Supabase database."],
   ["Test with your own account", "Start from Connect Instagram and approve the requested scopes. The callback validates one-time state, verifies the profile, exchanges for a long-lived token and stores it encrypted."],
   ["Create an MCP key", "After a successful connection, open Connect Instagram and create an API key. It is shown once; store it in your AI client's secret/header configuration. Revoke it here if needed."],
-  ["Configure comment webhooks", "In Meta Developer Dashboard, configure the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN for verification and subscribe to comments. Start with draft mode in /automation."],\n  ["Review before public launch", "Meta may require App Review and appropriate access for accounts outside your app roles. Test profile/media, comments and publishing with an account you control before relying on it."],
+  ["Configure comment webhooks", "In Meta Developer Dashboard, configure the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN for verification and subscribe to comments. Start with draft mode in /automation."],
+  ["Review before public launch", "Meta may require App Review and appropriate access for accounts outside your app roles. Test profile/media, comments and publishing with an account you control before relying on it."],
 ];
 
 function Setup() {
