@@ -111,8 +111,17 @@ export const Route = createFileRoute("/api/public/ai/chat")({
         const apiKey = process.env["OPENAI_API_KEY"];
         if (!apiKey) return Response.json({ error: "AI chat चालू करने के लिए Cloudflare Worker में OPENAI_API_KEY secret सेट करें। API key को वेबसाइट या GitHub code में न रखें।" }, { status: 503, headers: noStoreHeaders() });
 
+        // Bound the raw request before parsing JSON so a valid session cannot submit
+        // an arbitrarily large body and consume memory before per-message limits apply.
+        let rawBody: string;
+        try { rawBody = await request.text(); } catch {
+          return Response.json({ error: "Request body पढ़ा नहीं जा सका।" }, { status: 400, headers: noStoreHeaders() });
+        }
+        if (rawBody.length > 100_000) {
+          return Response.json({ error: "Chat request बहुत बड़ा है। Messages छोटा करके फिर भेजें।" }, { status: 413, headers: noStoreHeaders() });
+        }
         let body: { messages?: unknown };
-        try { body = await request.json() as { messages?: unknown }; } catch {
+        try { body = JSON.parse(rawBody) as { messages?: unknown }; } catch {
           return Response.json({ error: "Valid JSON messages भेजें।" }, { status: 400, headers: noStoreHeaders() });
         }
         if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 20) {
