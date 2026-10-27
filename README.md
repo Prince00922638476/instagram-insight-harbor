@@ -34,7 +34,8 @@ Generate random secrets locally with a trusted random generator and save them di
 Against the connected Supabase database, apply these SQL migrations **once and in order** if they have not already been applied:
 
 1. `drizzle/migrations/0000_instagram_core.sql`
-2. `drizzle/migrations/0001_mcp_api_keys.sql`\n3. `drizzle/migrations/0002_instagram_automation.sql`
+2. `drizzle/migrations/0001_mcp_api_keys.sql`
+3. `drizzle/migrations/0002_instagram_automation.sql`
 
 The token, OAuth state and automation tables are protected by RLS and only grant server-side service-role access. The clear Instagram token is never sent to the browser. Run migration 0002 before using Automation.
 
