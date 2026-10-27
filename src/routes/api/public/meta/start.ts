@@ -6,8 +6,8 @@ export const Route = createFileRoute("/api/public/meta/start")({
     handlers: {
       GET: async ({ request }) => {
         const url = new URL(request.url);
-        const appId = process.env["META_APP_ID"];
-        const secret = process.env["META_APP_SECRET"];
+        const appId = process.env["INSTAGRAM_APP_ID"] || process.env["META_APP_ID"];
+        const secret = process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"];
         const redirectUri = process.env["META_REDIRECT_URI"];
         if (!appId || !secret || !redirectUri ||
           !(process.env["INSTAGRAM_SESSION_SECRET"] && process.env["INSTAGRAM_SESSION_SECRET"].length >= 32) ||
