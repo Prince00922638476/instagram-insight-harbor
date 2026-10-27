@@ -49,6 +49,10 @@ The token, OAuth state and automation tables are protected by RLS and only grant
 6. Test loading media, reading insights, replying to a comment and publishing with a non-sensitive test post before using write tools.
 7. Meta App Review / Advanced Access may be required for accounts outside the app's roles.
 
+## AI comment data and safety
+
+When an enabled rule receives a new comment containing the configured keyword, the comment text and public username are sent to OpenAI to draft a reply. The webhook never sends a reply if the AI provider fails. In **draft** mode the reply waits in the dashboard for owner review; in **auto** mode, matching comments can receive a public reply without a separate confirmation for each comment. Keep auto-send disabled until a controlled test succeeds. Disable the rule to stop future automation.
+
 ## Connect an AI client
 
 After a real Instagram connection succeeds, open the **Connect** page and create an MCP API key. It appears once; copy it to the AI client's secret/header configuration.
