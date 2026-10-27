@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/public/instagram/comments")({
         }
         try {
           const result = await instagramApi(sessionId, `${mediaId}/comments`, { fields: "id,text,username,timestamp", limit: "100" });
-          return Response.json({ data: Array.isArray(result.data) ? result.data : [], paging: result.paging ?? null }, { headers: noStoreHeaders() });
+          return Response.json({ data: Array.isArray(result["data"]) ? result["data"] : [], paging: result["paging"] ?? null }, { headers: noStoreHeaders() });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Comments could not be loaded.";
           return Response.json({ error: message }, { status: 502, headers: noStoreHeaders() });
