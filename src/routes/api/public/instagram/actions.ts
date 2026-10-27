@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/public/instagram/actions")({
         try { input = await request.json() as Record<string, unknown>; } catch {
           return Response.json({ error: "Send a valid JSON body." }, { status: 400, headers: noStoreHeaders() });
         }
-        if (input.confirmed !== true) return Response.json({ error: "Action was not executed because explicit confirmation is required." }, { status: 400, headers: noStoreHeaders() });
+        if (input["confirmed"] !== true) return Response.json({ error: "Action was not executed because explicit confirmation is required." }, { status: 400, headers: noStoreHeaders() });
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: connection, error: connectionError } = await supabaseAdmin.from("instagram_connections")
@@ -32,42 +32,42 @@ export const Route = createFileRoute("/api/public/instagram/actions")({
           let action = "";
           let detail = "";
 
-          if (input.action === "reply") {
+          if (input["action"] === "reply") {
             if (!(connection.scopes ?? []).includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
-            if (typeof input.comment_id !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(input.comment_id)) throw new Error("A valid comment ID is required.");
-            if (typeof input.message !== "string" || !input.message.trim() || input.message.length > 1000) throw new Error("Reply must be 1–1,000 characters.");
-            result = await instagramApi(sessionId, `${input.comment_id}/replies`, { message: input.message.trim() }, "POST");
-            action = "comment.reply"; detail = `Comment ${input.comment_id}: ${input.message.trim().slice(0, 400)}`;
-          } else if (input.action === "hide") {
+            if (typeof input["comment_id"] !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(input["comment_id"])) throw new Error("A valid comment ID is required.");
+            if (typeof input["message"] !== "string" || !input["message"].trim() || input["message"].length > 1000) throw new Error("Reply must be 1–1,000 characters.");
+            result = await instagramApi(sessionId, `${input["comment_id"]}/replies`, { message: input["message"].trim() }, "POST");
+            action = "comment.reply"; detail = `Comment ${input["comment_id"]}: ${input["message"].trim().slice(0, 400)}`;
+          } else if (input["action"] === "hide") {
             if (!(connection.scopes ?? []).includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
-            if (typeof input.comment_id !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(input.comment_id)) throw new Error("A valid comment ID is required.");
-            if (typeof input.hidden !== "boolean") throw new Error("hidden must be true or false.");
-            result = await instagramApi(sessionId, input.comment_id, { hide: String(input.hidden) }, "POST");
-            action = "comment.hide"; detail = `${input.hidden ? "Hid" : "Unhid"} comment ${input.comment_id}`;
-          } else if (input.action === "publish") {
+            if (typeof input["comment_id"] !== "string" || !/^[A-Za-z0-9_.-]{1,128}$/.test(input["comment_id"])) throw new Error("A valid comment ID is required.");
+            if (typeof input["hidden"] !== "boolean") throw new Error("hidden must be true or false.");
+            result = await instagramApi(sessionId, input["comment_id"], { hide: String(input["hidden"]) }, "POST");
+            action = "comment.hide"; detail = `${input["hidden"] ? "Hid" : "Unhid"} comment ${input["comment_id"]}`;
+          } else if (input["action"] === "publish") {
             if (!(connection.scopes ?? []).includes("instagram_business_content_publish")) throw new Error("The connected account lacks content-publishing permission.");
-            if (input.media_type !== "IMAGE" && input.media_type !== "REELS") throw new Error("Media type must be IMAGE or REELS.");
-            if (!isSafeHttpsUrl(input.media_url)) throw new Error("Use a valid public HTTPS media URL.");
-            const caption = typeof input.caption === "string" ? input.caption : "";
+            if (input["media_type"] !== "IMAGE" && input["media_type"] !== "REELS") throw new Error("Media type must be IMAGE or REELS.");
+            if (!isSafeHttpsUrl(input["media_url"])) throw new Error("Use a valid public HTTPS media URL.");
+            const caption = typeof input["caption"] === "string" ? input["caption"] : "";
             if (caption.length > 2200) throw new Error("Caption must be at most 2,200 characters.");
             const params: Record<string, string> = { caption };
-            if (input.media_type === "IMAGE") params.image_url = input.media_url;
-            else { params.video_url = input.media_url; params.media_type = "REELS"; }
+            if (input["media_type"] === "IMAGE") params["image_url"] = input["media_url"];
+            else { params["video_url"] = input["media_url"]; params["media_type"] = "REELS"; }
             const container = await instagramApi(sessionId, `${connection.ig_user_id}/media`, params, "POST");
-            const containerId = typeof container.id === "string" ? container.id : "";
+            const containerId = typeof container["id"] === "string" ? container["id"] : "";
             if (!containerId) throw new Error("Instagram did not return a media container ID.");
-            if (input.media_type === "REELS") {
+            if (input["media_type"] === "REELS") {
               let finished = false;
               for (let attempt = 0; attempt < 10; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 const status = await instagramApi(sessionId, containerId, { fields: "status_code" });
-                if (status.status_code === "FINISHED") { finished = true; break; }
-                if (status.status_code === "ERROR" || status.status_code === "EXPIRED") throw new Error("Instagram could not process this reel.");
+                if (status["status_code"] === "FINISHED") { finished = true; break; }
+                if (status["status_code"] === "ERROR" || status["status_code"] === "EXPIRED") throw new Error("Instagram could not process this reel.");
               }
               if (!finished) throw new Error("Instagram is still processing this reel. Check status before attempting to publish again.");
             }
             result = await instagramApi(sessionId, `${connection.ig_user_id}/media_publish`, { creation_id: containerId }, "POST");
-            action = "media.publish"; detail = `${input.media_type}: ${input.media_url} — ${caption.slice(0, 300)}`;
+            action = "media.publish"; detail = `${input["media_type"]}: ${input["media_url"]} — ${caption.slice(0, 300)}`;
           } else {
             return Response.json({ error: "Unknown action." }, { status: 400, headers: noStoreHeaders() });
           }

@@ -103,10 +103,10 @@ export async function loadInstagramToken(sessionId: string): Promise<string> {
     refreshUrl.searchParams.set("access_token", token);
     const response = await fetch(refreshUrl, { signal: AbortSignal.timeout(15000) });
     const result = await response.json().catch(() => ({})) as { access_token?: string; expires_in?: number; error?: { message?: string } };
-    if (!response.ok || !result.access_token) throw new Error("Instagram token refresh failed. Reconnect the account in Settings.");
-    token = result.access_token;
+    if (!response.ok || !result["access_token"]) throw new Error("Instagram token refresh failed. Reconnect the account in Settings.");
+    token = result["access_token"];
     const now = new Date().toISOString();
-    const nextExpiry = new Date(Date.now() + (result.expires_in ?? 5_184_000) * 1000).toISOString();
+    const nextExpiry = new Date(Date.now() + (result["expires_in"] ?? 5_184_000) * 1000).toISOString();
     const [{ error: tokenSaveError }, { error: connectionSaveError }] = await Promise.all([
       supabaseAdmin.from("instagram_tokens").update({ access_token: encryptToken(token), updated_at: now }).eq("user_id", sessionId),
       supabaseAdmin.from("instagram_connections").update({ token_expires_at: nextExpiry, updated_at: now }).eq("user_id", sessionId),
@@ -138,8 +138,8 @@ export async function instagramApi(
     signal: AbortSignal.timeout(20000),
   });
   const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok || data.error) {
-    const apiError = data.error as { message?: string } | undefined;
+  if (!response.ok || data["error"]) {
+    const apiError = data["error"] as { message?: string } | undefined;
     throw new Error(apiError?.message || `Instagram API returned HTTP ${response.status}.`);
   }
   return data;
