@@ -93,23 +93,23 @@ export const Route = createFileRoute("/api/mcp")({
                 limit: String(positiveInt(args["limit"], 20, 50)),
               });
             } else if (toolName === "get_media_insights") {
-              if (typeof args["media_id"] !== "string" || !args["media_id"].trim()) throw new Error("media_id is required.");
+              if (typeof args["media_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["media_id"])) throw new Error("media_id must be a valid Instagram object ID.");
               const allow = new Set(["views", "reach", "likes", "comments", "saved", "shares", "total_interactions", "accounts_engaged"]);
               const requested = Array.isArray(args["metrics"]) ? args["metrics"].filter((v): v is string => typeof v === "string" && allow.has(v)) : ["reach", "likes", "comments", "saved", "shares"];
               if (!requested.length) throw new Error("Choose at least one supported metric.");
               result = await instagramApi(apiKey.user_id, `${args["media_id"]}/insights`, { metric: [...new Set(requested)].join(",") });
             } else if (toolName === "list_comments") {
-              if (typeof args["media_id"] !== "string" || !args["media_id"].trim()) throw new Error("media_id is required.");
+              if (typeof args["media_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["media_id"])) throw new Error("media_id must be a valid Instagram object ID.");
               result = await instagramApi(apiKey.user_id, `${args["media_id"]}/comments`, { fields: "id,text,username,timestamp", limit: String(positiveInt(args["limit"], 50, 100)) });
             } else if (toolName === "reply_to_comment") {
               if (args["confirmed"] !== true) throw new Error("Action not executed. Obtain the user's approval for this exact reply, then pass confirmed=true.");
-              if (typeof args["comment_id"] !== "string" || !args["comment_id"].trim()) throw new Error("comment_id is required.");
+              if (typeof args["comment_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["comment_id"])) throw new Error("comment_id must be a valid Instagram object ID.");
               if (typeof args["message"] !== "string" || !args["message"].trim() || args["message"].length > 1000) throw new Error("message must be 1–1000 characters.");
               result = await instagramApi(apiKey.user_id, `${args["comment_id"]}/replies`, { message: args["message"].trim() }, "POST");
               await write("comment.reply", `Comment ${args["comment_id"]}: ${args["message"].trim()}`);
             } else if (toolName === "hide_comment") {
               if (args["confirmed"] !== true) throw new Error("Action not executed. Obtain the user's approval, then pass confirmed=true.");
-              if (typeof args["comment_id"] !== "string" || !args["comment_id"].trim()) throw new Error("comment_id is required.");
+              if (typeof args["comment_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["comment_id"])) throw new Error("comment_id must be a valid Instagram object ID.");
               result = await instagramApi(apiKey.user_id, String(args["comment_id"]), { hide: "true" }, "POST");
               await write("comment.hide", `Comment ${args["comment_id"]}`);
             } else if (toolName === "publish_media") {
