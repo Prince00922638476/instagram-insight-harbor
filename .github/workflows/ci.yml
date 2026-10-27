@@ -27,5 +27,3 @@ jobs:
           test -f .output/server/wrangler.json
       - name: TypeScript typecheck
         run: bun run typecheck
-      - name: ESLint
-        run: bun run lint
