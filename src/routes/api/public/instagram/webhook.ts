@@ -22,12 +22,20 @@ function constantTimeStringEqual(a: string, b: string): boolean {
 }
 
 function verifySignature(raw: string, header: string | null): boolean {
-  const secret = process.env["META_APP_SECRET"];
-  if (!secret || !header?.startsWith("sha256=")) return false;
+  if (!header?.startsWith("sha256=")) return false;
   const received = header.slice("sha256=".length);
   if (!/^[a-f0-9]{64}$/i.test(received)) return false;
-  const expected = createHmac("sha256", secret).update(raw, "utf8").digest("hex");
-  return constantTimeStringEqual(received.toLowerCase(), expected);
+
+  // Instagram Login has a product-specific app secret. Keep the Meta app
+  // secret as a compatibility candidate for existing deployments.
+  const secrets = [...new Set([
+    process.env["INSTAGRAM_APP_SECRET"],
+    process.env["META_APP_SECRET"],
+  ].filter((value): value is string => typeof value === "string" && value.length > 0))];
+  return secrets.some(secret => {
+    const expected = createHmac("sha256", secret).update(raw, "utf8").digest("hex");
+    return constantTimeStringEqual(received.toLowerCase(), expected);
+  });
 }
 
 async function draftReply(comment: string, username: string, instruction: string): Promise<string> {
