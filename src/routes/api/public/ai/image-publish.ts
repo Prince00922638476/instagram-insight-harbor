@@ -35,6 +35,7 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
         if (!apiKey) return Response.json({ error: "AI image generation के लिए Cloudflare secret OPENAI_API_KEY सेट करें।" }, { status: 503, headers: noStoreHeaders() });
 
         let storagePath: string | null = null;
+        let instagramCallStarted = false;
         let admin: (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"] | null = null;
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -113,6 +114,10 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
           const mediaUrl = publicData.publicUrl;
           if (!mediaUrl.startsWith("https://")) throw new Error("Storage did not provide a public HTTPS URL.");
 
+          // Keep the public source image once an Instagram request starts. A timeout
+          // can happen after Meta accepted the request, and deleting the source could
+          // break a still-processing post or erase evidence needed for manual review.
+          instagramCallStarted = true;
           const container = await instagramApi(sessionId, `${connection.ig_user_id}/media`, { image_url: mediaUrl, caption }, "POST");
           const containerId = typeof container["id"] === "string" ? container["id"] : "";
           if (!containerId) throw new Error("Instagram did not return a media container ID.");
@@ -126,10 +131,15 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
           });
           return Response.json({ success: true, media_id: mediaId || containerId, media_url: mediaUrl }, { headers: noStoreHeaders() });
         } catch (error) {
-          if (storagePath && admin) {
+          if (storagePath && admin && !instagramCallStarted) {
             try { await admin.storage.from("instagram-generated").remove([storagePath]); } catch { /* best effort cleanup */ }
           }
           console.error("[AI image publish]", error instanceof Error ? error.message : "Unexpected error");
+          if (instagramCallStarted) {
+            return Response.json({
+              error: "Instagram may have accepted the upload or publish request, but the final status could not be confirmed. Check your Instagram profile before retrying; the generated source image was kept for safety.",
+            }, { status: 502, headers: noStoreHeaders() });
+          }
           return Response.json({ error: error instanceof Error ? error.message : "Image generation or publishing failed. Check setup and try again." }, { status: 502, headers: noStoreHeaders() });
         }
       },
