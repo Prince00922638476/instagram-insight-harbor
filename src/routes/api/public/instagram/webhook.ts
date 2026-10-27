@@ -78,9 +78,16 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
     event_key: eventKey, user_id: connection.user_id, event_type: "comment", status: "received",
   });
   if (insertError) {
-    const { data: prior } = await admin.from("instagram_webhook_events").select("status").eq("event_key", eventKey).maybeSingle();
-    if (!prior || !["received", "error"].includes(prior.status)) return;
-    await admin.from("instagram_webhook_events").update({ status: "received", error_message: null }).eq("event_key", eventKey);
+    // Treat every previously recorded comment as a duplicate. Retrying an event after
+    // an ambiguous network failure could send the same public reply twice.
+    const { data: prior, error: lookupError } = await admin
+      .from("instagram_webhook_events")
+      .select("event_key")
+      .eq("event_key", eventKey)
+      .maybeSingle();
+    if (prior) return;
+    console.error("[Instagram webhook] Could not claim event:", lookupError ? "event lookup failed" : "event insert failed");
+    return;
   }
 
   try {
