@@ -66,10 +66,8 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
           if (enabled) {
             const missing: string[] = [];
             if (!process.env["OPENAI_API_KEY"]) missing.push("OPENAI_API_KEY");
-            if (mode === "auto") {
-              if (!process.env["META_WEBHOOK_VERIFY_TOKEN"]) missing.push("META_WEBHOOK_VERIFY_TOKEN");
-              if (!process.env["META_APP_SECRET"]) missing.push("META_APP_SECRET");
-            }
+            if (!process.env["META_WEBHOOK_VERIFY_TOKEN"]) missing.push("META_WEBHOOK_VERIFY_TOKEN");
+            if (!process.env["META_APP_SECRET"]) missing.push("META_APP_SECRET");
             if (missing.length) {
               const modeLabel = mode === "auto" ? "Auto-reply" : "AI draft mode";
               return Response.json({ error: `${modeLabel} is blocked until these server secrets are configured: ${missing.join(", ")}.` }, { status: 409, headers: noStoreHeaders() });
