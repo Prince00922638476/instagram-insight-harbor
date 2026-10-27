@@ -31,20 +31,20 @@ export const Route = createFileRoute("/api/public/meta/callback")({
 
           // Atomically consume a fresh state for this browser session. A separate
           // SELECT followed by DELETE can let two concurrent callbacks reuse it.
-          const now = Date.now();
+          const nowMs = Date.now();
           const { data: savedState, error: stateError } = await supabaseAdmin
             .from("oauth_states")
             .delete()
             .eq("state", state)
             .eq("user_id", ownerId)
-            .gte("created_at", new Date(now - 10 * 60 * 1000).toISOString())
-            .lte("created_at", new Date(now + 30_000).toISOString())
+            .gte("created_at", new Date(nowMs - 10 * 60 * 1000).toISOString())
+            .lte("created_at", new Date(nowMs + 30_000).toISOString())
             .select("state,user_id,scopes,created_at")
             .maybeSingle();
           if (stateError) return back("storage_failed");
           if (!savedState) return back("invalid_state");
           const createdAt = new Date(savedState.created_at).getTime();
-          if (savedState.user_id !== ownerId || !Number.isFinite(createdAt) || createdAt > now + 30_000 || now - createdAt > 10 * 60 * 1000) {
+          if (savedState.user_id !== ownerId || !Number.isFinite(createdAt) || createdAt > nowMs + 30_000 || nowMs - createdAt > 10 * 60 * 1000) {
             return back("invalid_state");
           }
 
