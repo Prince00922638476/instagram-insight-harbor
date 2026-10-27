@@ -30,11 +30,7 @@ function verifySignature(raw: string, header: string | null): boolean {
 
 async function draftReply(comment: string, username: string, instruction: string): Promise<string> {
   const apiKey = process.env["OPENAI_API_KEY"];
-  if (!apiKey) {
-    return /[\u0900-\u097f]/.test(comment)
-      ? "आपकी टिप्पणी के लिए धन्यवाद! 😊"
-      : "Thanks for your comment! 😊";
-  }
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -108,15 +104,8 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
       throw new Error("Comment-management permission is missing.");
     }
     const mode = settings.mode === "auto" ? "auto" : "draft";
-    let reply: string;
-    try {
-      reply = await draftReply(text, commenter, String(settings.reply_instruction ?? ""));
-    } catch (error) {
-      if (mode === "auto") throw error;
-      reply = /[\u0900-\u097f]/.test(text)
-        ? "आपकी टिप्पणी के लिए धन्यवाद! 😊"
-        : "Thanks for your comment! 😊";
-    }
+    // Fail safely instead of disguising a canned template as an AI-generated reply.
+    const reply = await draftReply(text, commenter, String(settings.reply_instruction ?? ""));
 
     if (mode === "auto") {
       // Auto-send is reached only for an enabled rule, only after a keyword match, and only after signature validation.
