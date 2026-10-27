@@ -32,7 +32,7 @@ function Dashboard() {
         const response = await fetch("/api/public/meta/status", { cache: "no-store" });
         const status = await response.json() as { connected?: boolean; account?: { username: string | null; accountType: string | null } | null };
         if (cancelled) return;
-        setLive({ connected: Boolean(status.connected), account: status.account });
+        setLive({ connected: Boolean(status.connected), account: status.account ?? null });
         if (status.connected) {
           const mediaResponse = await fetch("/api/public/instagram/media?limit=50", { cache: "no-store" });
           const media = await mediaResponse.json() as { data?: Array<{ id: string; caption?: string; permalink?: string; media_url?: string; thumbnail_url?: string; media_type?: string; like_count?: number; comments_count?: number }>; error?: string };
