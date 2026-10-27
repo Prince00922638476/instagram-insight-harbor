@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { instagramApi, noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProposedAction =
@@ -113,13 +113,15 @@ export const Route = createFileRoute("/api/public/ai/chat")({
 
         // Bound the raw request before parsing JSON so a valid session cannot submit
         // an arbitrarily large body and consume memory before per-message limits apply.
-        let rawBody: string;
-        try { rawBody = await request.text(); } catch {
-          return Response.json({ error: "Request body पढ़ा नहीं जा सका।" }, { status: 400, headers: noStoreHeaders() });
+        const bodyRead = await readLimitedRequestBody(request, 100_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json(
+            { error: tooLarge ? "Chat request बहुत बड़ा है। Messages छोटा करके फिर भेजें।" : "Request body पढ़ा नहीं जा सका।" },
+            { status: tooLarge ? 413 : 400, headers: noStoreHeaders() },
+          );
         }
-        if (rawBody.length > 100_000) {
-          return Response.json({ error: "Chat request बहुत बड़ा है। Messages छोटा करके फिर भेजें।" }, { status: 413, headers: noStoreHeaders() });
-        }
+        const rawBody = bodyRead.text;
         let body: { messages?: unknown };
         try { body = JSON.parse(rawBody) as { messages?: unknown }; } catch {
           return Response.json({ error: "Valid JSON messages भेजें।" }, { status: 400, headers: noStoreHeaders() });
