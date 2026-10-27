@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/public/meta/disconnect")({
         // Prevent cross-site triggering of a state-changing request.
         const origin = request.headers.get("origin");
         const requestOrigin = new URL(request.url).origin;
-        if (origin && origin !== requestOrigin) {
+        if (origin !== requestOrigin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
         try {
