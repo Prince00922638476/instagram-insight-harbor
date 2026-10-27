@@ -51,7 +51,7 @@ The token, OAuth state and automation tables are protected by RLS and only grant
 
 ## AI comment data and safety
 
-When an enabled rule receives a new comment containing the configured keyword, the comment text and public username are sent to OpenAI to draft a reply. The webhook never sends a reply if the AI provider fails. In **draft** mode the reply waits in the dashboard for owner review; in **auto** mode, matching comments can receive a public reply without a separate confirmation for each comment. Keep auto-send disabled until a controlled test succeeds. Disable the rule to stop future automation.
+When you use AI Chat, your messages and the Instagram profile/media/comment data needed for the requested answer may be sent to OpenAI for processing. Chat history is held in page state and is not saved to the app database. When an enabled automation rule receives a new comment containing the configured keyword, that comment text and public username are sent to OpenAI to draft a reply. The webhook never sends a reply if the AI provider fails. In **draft** mode the reply waits in the dashboard for owner review; in **auto** mode, matching comments can receive a public reply without a separate confirmation for each comment. Keep auto-send disabled until a controlled test succeeds. Disable the rule to stop future automation.
 
 ## Connect an AI client
 
