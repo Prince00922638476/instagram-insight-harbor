@@ -111,7 +111,7 @@ function Comments() {
           : <div className="space-y-3">{liveList.map(comment => <Card key={comment.id} className={comment.hidden ? "opacity-60" : ""}>
             <div className="flex items-start justify-between gap-3">
               <div><p className="text-sm"><strong>@{comment.user}</strong> <span className="text-xs text-muted-foreground">on “{comment.mediaCaption}” · {comment.date}</span></p><p className="mt-1">{comment.text}</p></div>
-              <button onClick={() => setPending({ kind: "hide", id: comment.id, hidden: comment.hidden })} className="rounded-lg p-2 hover:bg-muted" aria-label={comment.hidden ? "Unhide comment" : "Hide comment"}>{comment.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button>
+              <button onClick={() => setPending({ kind: "hide", id: comment.id, hidden: comment.hidden ?? false })} className="rounded-lg p-2 hover:bg-muted" aria-label={comment.hidden ? "Unhide comment" : "Hide comment"}>{comment.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}</button>
             </div>
             {comment.replies.map((reply, i) => <p key={i} className="mt-2 rounded-xl bg-teal-soft p-2 text-sm text-accent-foreground">↳ {reply}</p>)}
             <div className="mt-3 flex gap-2"><input value={drafts[comment.id] ?? ""} onChange={e => setDrafts({ ...drafts, [comment.id]: e.target.value })} placeholder="Write a public reply…" className="flex-1 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" /><Button disabled={!drafts[comment.id]?.trim()} onClick={() => setPending({ kind: "reply", id: comment.id, text: (drafts[comment.id] ?? "").trim() })}><Reply className="h-4 w-4" /></Button></div>
