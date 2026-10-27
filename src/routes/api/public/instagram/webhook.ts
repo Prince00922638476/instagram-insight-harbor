@@ -74,19 +74,33 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
     event_key: eventKey, user_id: connection.user_id, event_type: "comment", status: "received",
   });
   if (insertError) {
-    // Treat every previously recorded comment as a duplicate. Retrying an event after
-    // an ambiguous network failure could send the same public reply twice.
+    // Completed and ambiguous events are never replayed: an auto-reply may already
+    // have reached Instagram even if the response was lost.
     const { data: prior, error: lookupError } = await admin
       .from("instagram_webhook_events")
-      .select("event_key")
+      .select("event_key,status")
       .eq("event_key", eventKey)
       .maybeSingle();
-    if (prior) return;
-    console.error("[Instagram webhook] Could not claim event:", lookupError ? "event lookup failed" : "event insert failed");
-    // Without a prior row this was not a duplicate; fail the webhook request so Meta can retry.
-    throw new Error("Could not record the webhook event safely.");
+    if (prior && prior.status !== "error") return;
+    if (prior?.status === "error") {
+      // Reclaim only retryable failures. The status predicate makes concurrent
+      // Meta retries race safely; only one request can reclaim this event.
+      const { data: reclaimed, error: reclaimError } = await admin
+        .from("instagram_webhook_events")
+        .update({ status: "received", error_message: null, processed_at: null })
+        .eq("event_key", eventKey)
+        .eq("status", "error")
+        .select("event_key")
+        .maybeSingle();
+      if (reclaimError || !reclaimed) return;
+    } else {
+      console.error("[Instagram webhook] Could not claim event:", lookupError ? "event lookup failed" : "event insert failed");
+      // Without a prior row this was not a duplicate; fail the webhook request so Meta can retry.
+      throw new Error("Could not record the webhook event safely.");
+    }
   }
 
+  let externalReplyAttempted = false;
   try {
     const { data: settings, error: settingsError } = await admin.from("instagram_automation_settings")
       .select("enabled,mode,trigger_keyword,reply_instruction")
@@ -109,7 +123,9 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
     const reply = await draftReply(text, commenter, String(settings.reply_instruction ?? ""));
 
     if (mode === "auto") {
-      // Auto-send is reached only for an enabled rule, only after a keyword match, and only after signature validation.
+      // Once the external request starts, its outcome can be ambiguous (for example,
+      // a network timeout after Instagram accepted it). Never automatically replay it.
+      externalReplyAttempted = true;
       await instagramApi(connection.user_id, `${commentId}/replies`, { message: reply }, "POST");
       await admin.from("activity_log").insert({
         user_id: connection.user_id,
@@ -134,7 +150,15 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : "Comment automation failed.";
     console.error("[Instagram webhook comment]", message);
-    await admin.from("instagram_webhook_events").update({ status: "error", error_message: message, processed_at: new Date().toISOString() }).eq("event_key", eventKey);
+    await admin.from("instagram_webhook_events").update({
+      status: externalReplyAttempted ? "needs_review" : "error",
+      error_message: message,
+      processed_at: new Date().toISOString(),
+    }).eq("event_key", eventKey);
+
+    // A pre-send failure is safe for Meta to retry. An auto-reply request that has
+    // started is not safe to replay because Instagram may already have accepted it.
+    if (!externalReplyAttempted) throw error;
   }
 }
 
@@ -165,12 +189,18 @@ export const Route = createFileRoute("/api/public/instagram/webhook")({
         if (body.object !== "instagram" || !Array.isArray(body.entry)) {
           return Response.json({ received: true }, { headers: noStoreHeaders() });
         }
-        for (const entry of body.entry) {
-          if (!entry || typeof entry.id !== "string" || !Array.isArray(entry.changes)) continue;
-          for (const change of entry.changes) {
-            if (change?.field !== "comments" || !change.value) continue;
-            await processComment(entry.id, change.value);
+        try {
+          for (const entry of body.entry) {
+            if (!entry || typeof entry.id !== "string" || !Array.isArray(entry.changes)) continue;
+            for (const change of entry.changes) {
+              if (change?.field !== "comments" || !change.value) continue;
+              await processComment(entry.id, change.value);
+            }
           }
+        } catch {
+          // Ask Meta to retry retryable failures. Ambiguous auto-reply outcomes are
+          // recorded as needs_review and intentionally do not reach this path.
+          return Response.json({ error: "Webhook processing failed; retry later." }, { status: 500, headers: noStoreHeaders() });
         }
         return Response.json({ received: true }, { headers: noStoreHeaders() });
       },
