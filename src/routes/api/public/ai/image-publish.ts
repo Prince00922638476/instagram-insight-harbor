@@ -105,10 +105,10 @@ export const Route = createFileRoute("/api/public/ai/image-publish")({
           if (!mediaUrl.startsWith("https://")) throw new Error("Storage did not provide a public HTTPS URL.");
 
           const container = await instagramApi(sessionId, `${connection.ig_user_id}/media`, { image_url: mediaUrl, caption }, "POST");
-          const containerId = typeof container.id === "string" ? container.id : "";
+          const containerId = typeof container["id"] === "string" ? container["id"] : "";
           if (!containerId) throw new Error("Instagram did not return a media container ID.");
           const published = await instagramApi(sessionId, `${connection.ig_user_id}/media_publish`, { creation_id: containerId }, "POST");
-          const mediaId = typeof published.id === "string" ? published.id : "";
+          const mediaId = typeof published["id"] === "string" ? published["id"] : "";
           await admin.from("activity_log").insert({
             user_id: sessionId,
             action: "ai.image_publish",
