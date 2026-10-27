@@ -83,7 +83,8 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
       .maybeSingle();
     if (prior) return;
     console.error("[Instagram webhook] Could not claim event:", lookupError ? "event lookup failed" : "event insert failed");
-    return;
+    // Without a prior row this was not a duplicate; fail the webhook request so Meta can retry.
+    throw new Error("Could not record the webhook event safely.");
   }
 
   try {
