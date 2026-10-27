@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { encryptToken, noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { encryptToken, graphVersion, noStoreHeaders, readSession } from "@/lib/instagram.server";
 
 export const Route = createFileRoute("/api/public/meta/callback")({
   server: {
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             return back("exchange_failed");
           }
 
-          const meUrl = new URL("https://graph.instagram.com/v25.0/me");
+          const meUrl = new URL(`https://graph.instagram.com/${graphVersion()}/me`);
           meUrl.searchParams.set("fields", "user_id,username,account_type");
           meUrl.searchParams.set("access_token", longData.access_token);
           const meResponse = await fetch(meUrl, { signal: AbortSignal.timeout(15000) });
