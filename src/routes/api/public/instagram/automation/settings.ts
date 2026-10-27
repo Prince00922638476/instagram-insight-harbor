@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 const SETTINGS_FIELDS = "enabled,mode,trigger_keyword,reply_instruction,updated_at";
 const DEFAULT_SETTINGS = {
@@ -80,6 +80,17 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
             if (missing.length) {
               const modeLabel = mode === "auto" ? "Auto-reply" : "AI draft mode";
               return Response.json({ error: `${modeLabel} is blocked until these server secrets are configured: ${missing.join(", ")}.` }, { status: 409, headers: noStoreHeaders() });
+            }
+
+            // Register this Instagram account's comments subscription as well as
+            // requiring the separate app-level callback/field setup in Meta.
+            try {
+              await instagramApi(ownerId, "me/subscribed_apps", { subscribed_fields: "comments" }, "POST");
+            } catch (error) {
+              console.error("[Automation settings POST] Instagram comments webhook subscription failed.", error instanceof Error ? error.message : "Unknown error");
+              return Response.json({
+                error: "Instagram account webhook subscription failed. Confirm the Meta app-level Instagram comments webhook is verified in the Developer Dashboard, then reconnect with comment permission and try again.",
+              }, { status: 409, headers: noStoreHeaders() });
             }
           }
           const now = new Date().toISOString();
