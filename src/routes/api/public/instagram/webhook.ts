@@ -70,7 +70,8 @@ async function processComment(entryId: string, comment: WebhookComment): Promise
   const { data: connection, error: connectionError } = await admin.from("instagram_connections")
     .select("user_id,ig_user_id,username,scopes,status")
     .eq("ig_user_id", entryId).eq("status", "connected").maybeSingle();
-  if (connectionError || !connection) return;
+  if (connectionError) throw new Error("The webhook account mapping could not be read.");
+  if (!connection) return;
   if (commenterId && commenterId === connection.ig_user_id) return;
   if (commenter && connection.username && commenter.toLowerCase() === String(connection.username).toLowerCase()) return;
 
