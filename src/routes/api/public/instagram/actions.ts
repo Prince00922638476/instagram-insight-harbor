@@ -51,8 +51,8 @@ export const Route = createFileRoute("/api/public/instagram/actions")({
             const caption = typeof input["caption"] === "string" ? input["caption"] : "";
             if (caption.length > 2200) throw new Error("Caption must be at most 2,200 characters.");
             const params: Record<string, string> = { caption };
-            if (input["media_type"] === "IMAGE") params.image_url = input["media_url"];
-            else { params.video_url = input["media_url"]; params.media_type = "REELS"; }
+            if (input["media_type"] === "IMAGE") params["image_url"] = input["media_url"];
+            else { params["video_url"] = input["media_url"]; params["media_type"] = "REELS"; }
             const container = await instagramApi(sessionId, `${connection.ig_user_id}/media`, params, "POST");
             const containerId = typeof container["id"] === "string" ? container["id"] : "";
             if (!containerId) throw new Error("Instagram did not return a media container ID.");
