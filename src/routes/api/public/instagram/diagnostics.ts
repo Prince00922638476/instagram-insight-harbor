@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/public/instagram/diagnostics")({
 
           let media: Array<Record<string, unknown>> = [];
           try {
-            const profile = await instagramApi(sessionId, "me", { fields: "id,username,account_type,media_count" });
+            const profile = await instagramApi(sessionId, "me", { fields: "user_id,username,account_type,media_count" });
             checks.push({ id: "profile", label: "Profile endpoint", status: "ok", detail: `Profile endpoint responded for @${String(profile["username"] ?? connection.username ?? "account")}.`, nextStep: "No action needed." });
           } catch (error) { checks.push(fail("profile", "Profile endpoint", error)); }
 
