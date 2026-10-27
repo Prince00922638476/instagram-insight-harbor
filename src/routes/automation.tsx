@@ -143,6 +143,7 @@ function Automation() {
           </div>
           {!serverStatus?.connected && <p className="mt-4 text-sm">पहले <Link to="/connect" className="font-semibold text-primary underline">Connect Instagram</Link> खोलकर account connect करो।</p>}
           {!serverStatus?.aiConfigured && <p className="mt-2 text-sm text-muted-foreground">AI replies के लिए Cloudflare Worker secret <code>OPENAI_API_KEY</code> जोड़ना होगा। Key को chat या GitHub में मत डालना।</p>}
+          {!serverStatus?.webhookConfigured && <p className="mt-2 text-sm text-muted-foreground">Draft और Auto दोनों modes के लिए Cloudflare Worker secrets <code>META_WEBHOOK_VERIFY_TOKEN</code> और <code>META_APP_SECRET</code> भी जरूरी हैं।</p>}
         </Card>
 
         <Card className="mb-5">
