@@ -150,7 +150,7 @@ function AiChat() {
           <button type="submit" disabled={busy || !draft.trim()} aria-label="Send message" className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
         </form>
       </Card>
-      <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" /><p>Chat ब्राउज़र में रखी जाती है। AI सेवा चालू करने के लिए server secret <code>OPENAI_API_KEY</code> चाहिए। सार्वजनिक reply या post इस पेज से तुम्हारे Confirm दबाने पर ही भेजे जाते हैं।</p></div>
+      <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground"><MessageCircle className="mt-0.5 h-4 w-4 shrink-0" /><p>Chat history इस page state में रहती है, app database में save नहीं होती। AI जवाब बनाने के लिए तुम्हारे messages और माँगा गया Instagram profile/media/comments data OpenAI को भेजा जा सकता है। AI के लिए server secret <code>OPENAI_API_KEY</code> चाहिए। सार्वजनिक reply या post इस पेज से तुम्हारे Confirm दबाने पर ही भेजे जाते हैं।</p></div>
     </>
   );
 }
