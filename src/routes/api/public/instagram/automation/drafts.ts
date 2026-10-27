@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
         if (!ownerId) return Response.json({ error: "Connect Instagram first." }, { status: 401, headers: noStoreHeaders() });
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const admin = supabaseAdmin as any;
+          const admin = supabaseAdmin;
           const { data, error } = await admin.from("instagram_reply_drafts")
             .select("id,comment_id,media_id,commenter_username,comment_text,suggested_reply,status,created_at")
             .eq("user_id", ownerId).eq("status", "pending").order("created_at", { ascending: false }).limit(100);
