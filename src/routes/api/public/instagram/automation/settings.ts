@@ -40,8 +40,13 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        let rawBody: string;
+        try { rawBody = await request.text(); } catch {
+          return Response.json({ error: "Request body could not be read." }, { status: 400, headers: noStoreHeaders() });
+        }
+        if (rawBody.length > 16_000) return Response.json({ error: "Request body is too large." }, { status: 413, headers: noStoreHeaders() });
         let input: Record<string, unknown>;
-        try { input = await request.json() as Record<string, unknown>; } catch {
+        try { input = JSON.parse(rawBody) as Record<string, unknown>; } catch {
           return Response.json({ error: "Send valid JSON." }, { status: 400, headers: noStoreHeaders() });
         }
         const enabled = input["enabled"] === true;
