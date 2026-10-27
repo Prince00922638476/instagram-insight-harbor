@@ -14,8 +14,8 @@ export const Route = createFileRoute("/api/public/meta/callback")({
         if (url.searchParams.get("error")) return back("denied");
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");
-        const appId = process.env["META_APP_ID"];
-        const secret = process.env["META_APP_SECRET"];
+        const appId = process.env["INSTAGRAM_APP_ID"] || process.env["META_APP_ID"];
+        const secret = process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"];
         const redirectUri = process.env["META_REDIRECT_URI"];
         const ownerId = readSession(request);
         if (!code || !state || !appId || !secret || !redirectUri || !ownerId) {
