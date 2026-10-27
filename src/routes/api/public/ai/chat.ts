@@ -67,19 +67,19 @@ async function executeReadTool(sessionId: string, name: string, args: Record<str
   }
   if (name === "list_comments") {
     const mediaId = typeof args["media_id"] === "string" ? args["media_id"] : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(mediaId)) throw new Error("A valid media ID is required to read comments.");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(mediaId)) throw new Error("A valid media ID is required to read comments.");
     const n = typeof args["limit"] === "number" && Number.isInteger(args["limit"]) ? Math.max(1, Math.min(30, args["limit"])) : 20;
     return { result: await instagramApi(sessionId, `${mediaId}/comments`, { fields: "id,text,username,timestamp", limit: String(n) }) };
   }
   if (name === "propose_reply_to_comment") {
     const id = typeof args["comment_id"] === "string" ? args["comment_id"] : "";
     const message = typeof args["message"] === "string" ? args["message"].trim() : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || !message || message.length > 1000) throw new Error("The reply proposal needs a valid comment ID and a message of 1–1,000 characters.");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !message || message.length > 1000) throw new Error("The reply proposal needs a valid comment ID and a message of 1–1,000 characters.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "reply", comment_id: id, message } };
   }
   if (name === "propose_hide_comment") {
     const id = typeof args["comment_id"] === "string" ? args["comment_id"] : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || typeof args["hidden"] !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || typeof args["hidden"] !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "hide", comment_id: id, hidden: args["hidden"] } };
   }
   if (name === "propose_generate_image_post") {
