@@ -12,8 +12,8 @@ export const Route = createFileRoute("/setup")({
 });
 
 const requiredSecrets = [
-  ["META_APP_ID", "Instagram App ID from the Instagram API with Instagram Login product settings."],
-  ["META_APP_SECRET", "Instagram App Secret from those same Instagram product settings. Keep it server-side."],
+  ["INSTAGRAM_APP_ID", "Instagram App ID from Instagram API with Instagram Login. Legacy META_APP_ID is accepted if this is unset."],
+  ["INSTAGRAM_APP_SECRET", "Instagram product App Secret used for OAuth and Instagram webhook signature verification. Legacy META_APP_SECRET is accepted if this is unset."],
   ["META_REDIRECT_URI", "Exact HTTPS callback URL, for example https://YOUR-DOMAIN/api/public/meta/callback."],
   ["INSTAGRAM_SESSION_SECRET", "A random secret of at least 32 characters used to sign the browser session cookie."],
   ["INSTAGRAM_TOKEN_ENCRYPTION_KEY", "A random 32-byte key encoded as 64 hexadecimal characters, used for AES-256-GCM token encryption."],
