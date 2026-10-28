@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { Check, ShieldCheck, Loader2, Info, Copy, KeyRound, Trash2, ExternalLink } from "lucide-react";
 import { Button, Card, ConfirmDialog, PageHeader } from "@/components/ui-kit";
-import { ALL_SCOPES } from "@/lib/app-store";
+import { ALL_SCOPES } from "@/lib/instagram-scopes";
 import { useMetaConfig } from "@/lib/use-mode";
 
 export const Route = createFileRoute("/connect")({
