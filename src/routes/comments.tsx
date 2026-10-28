@@ -31,7 +31,8 @@ function Comments() {
       setLoading(true);
       try {
         const statusResponse = await fetch("/api/public/meta/status", { cache: "no-store" });
-        const status = await statusResponse.json() as { connected?: boolean };
+        const status = await statusResponse.json() as { connected?: boolean; error?: string };
+        if (!statusResponse.ok) throw new Error(status.error || "Instagram connection status could not be loaded.");
         if (cancelled) return;
         setLive(Boolean(status.connected));
         if (!status.connected) return;
@@ -67,6 +68,34 @@ function Comments() {
     void load();
     return () => { cancelled = true; };
   }, []);
+
+  async function confirmLiveAction() {
+    if (!pending || !liveTarget || liveBusy) return;
+    setLiveBusy(true);
+    setLiveError(null);
+    try {
+      const body = pending.kind === "reply"
+        ? { action: "reply", comment_id: pending.id, message: pending.text, confirmed: true }
+        : { action: "hide", comment_id: pending.id, hidden: !pending.hidden, confirmed: true };
+      const response = await fetch("/api/public/instagram/actions", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Instagram action failed.");
+      setLiveComments(current => current.map(comment => comment.id !== pending.id ? comment : pending.kind === "reply"
+        ? { ...comment, replies: [...comment.replies, pending.text] }
+        : { ...comment, hidden: !pending.hidden }));
+      setDrafts(current => ({ ...current, [pending.id]: "" }));
+      setPending(null);
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : "Instagram action failed.");
+    } finally {
+      setLiveBusy(false);
+    }
+  }
 
   const liveList = useMemo(() => liveComments.filter(comment => filter === "all" || (comment.replies.length === 0 && !comment.hidden)), [liveComments, filter]);
   const liveTarget = pending ? liveComments.find(comment => comment.id === pending.id) : undefined;
