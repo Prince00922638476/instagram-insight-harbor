@@ -8,17 +8,21 @@ type ProposedAction =
   | { action: "publish"; media_type: "IMAGE" | "REELS"; media_url: string; caption: string }
   | { action: "generate_image_post"; image_prompt: string; caption: string };
 
-type ModelToolCall = {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
+type GeminiFunctionCall = {
+  name: string;
+  args?: Record<string, unknown>;
+  id?: string;
 };
-type ModelResponse = {
-  choices?: Array<{
-    message?: { content?: string | null; tool_calls?: ModelToolCall[] };
-    finish_reason?: string;
+type GeminiPart = {
+  text?: string;
+  functionCall?: GeminiFunctionCall;
+};
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: { role?: string; parts?: GeminiPart[] };
+    finishReason?: string;
   }>;
-  error?: { message?: string };
+  error?: { message?: string; status?: string; code?: number };
 };
 
 const tools = [
@@ -30,6 +34,45 @@ const tools = [
   { type: "function", function: { name: "propose_publish_media", description: "Prepare an Instagram image or Reel post using a publicly accessible HTTPS media URL. This only creates a proposal; it does not publish anything.", parameters: { type: "object", properties: { media_type: { type: "string", enum: ["IMAGE", "REELS"] }, media_url: { type: "string" }, caption: { type: "string", maxLength: 2200 } }, required: ["media_type", "media_url", "caption"], additionalProperties: false } } },
   { type: "function", function: { name: "propose_generate_image_post", description: "Prepare a generated AI image post. This only creates a proposal; the server will not generate or publish the image until the owner confirms it.", parameters: { type: "object", properties: { image_prompt: { type: "string", minLength: 10, maxLength: 2500 }, caption: { type: "string", maxLength: 2200 } }, required: ["image_prompt", "caption"], additionalProperties: false } } },
 ];
+
+function toGeminiSchema(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+
+  const allowedKeys = new Set([
+    "type", "description", "enum", "items", "minimum", "maximum",
+    "properties", "required", "additionalProperties",
+  ]);
+  const schema = value as Record<string, unknown>;
+  const output: Record<string, unknown> = {};
+
+  for (const [key, nested] of Object.entries(schema)) {
+    if (!allowedKeys.has(key)) continue;
+    if (key === "properties" && nested && typeof nested === "object" && !Array.isArray(nested)) {
+      output[key] = Object.fromEntries(
+        Object.entries(nested as Record<string, unknown>).map(([name, propertySchema]) => [name, toGeminiSchema(propertySchema)]),
+      );
+    } else if (key === "items") {
+      output[key] = toGeminiSchema(nested);
+    } else {
+      output[key] = nested;
+    }
+  }
+
+  return output;
+}
+
+const geminiFunctionDeclarations = tools.map((tool) => {
+  const definition = tool.function as {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+  return {
+    name: definition.name,
+    description: definition.description,
+    parametersJsonSchema: toGeminiSchema(definition.parameters),
+  };
+});
 
 const systemPrompt = `You are InstaBridge AI, an assistant inside the owner's Instagram management dashboard.
 Be concise, practical, and reply in the language the owner uses.
@@ -46,11 +89,10 @@ function safeHttpsUrl(value: unknown): value is string {
   } catch { return false; }
 }
 
-function parseArguments(value: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch { return {}; }
+function parseArguments(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
 async function executeReadTool(sessionId: string, name: string, args: Record<string, unknown>): Promise<{ result: unknown; action?: ProposedAction }> {
@@ -108,8 +150,8 @@ export const Route = createFileRoute("/api/public/ai/chat")({
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
 
-        const apiKey = process.env["OPENAI_API_KEY"];
-        if (!apiKey) return Response.json({ error: "AI chat चालू करने के लिए Cloudflare Worker में OPENAI_API_KEY secret सेट करें। API key को वेबसाइट या GitHub code में न रखें।" }, { status: 503, headers: noStoreHeaders() });
+        const apiKey = process.env["GEMINI_API_KEY"];
+        if (!apiKey) return Response.json({ error: "AI chat चालू करने के लिए Cloudflare Worker में GEMINI_API_KEY secret सेट करें। API key को वेबसाइट या GitHub code में न रखें।" }, { status: 503, headers: noStoreHeaders() });
 
         // Bound the raw request before parsing JSON so a valid session cannot submit
         // an arbitrarily large body and consume memory before per-message limits apply.
@@ -141,37 +183,74 @@ export const Route = createFileRoute("/api/public/ai/chat")({
         }
 
         let pendingAction: ProposedAction | null = null;
-        const conversation: Array<Record<string, unknown>> = [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ];
-        const model = process.env["OPENAI_MODEL"] || "gpt-4.1-mini";
+        const conversation: Array<Record<string, unknown>> = messages.map((message) => ({
+          role: message.role === "assistant" ? "model" : "user",
+          parts: [{ text: message.content }],
+        }));
+        const model = process.env["GEMINI_MODEL"] || "gemini-2.5-flash";
 
         try {
           let finalText = "";
           for (let turn = 0; turn < 4; turn++) {
-            const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            const providerUrl = new URL(
+              "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent",
+            );
+            const response = await fetch(providerUrl, {
               method: "POST",
-              headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model, messages: conversation, tools, tool_choice: "auto", temperature: 0.3, max_tokens: 1000 }),
+              headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: conversation,
+                tools: [{ functionDeclarations: geminiFunctionDeclarations }],
+                toolConfig: { functionCallingConfig: { mode: "AUTO" } },
+                generationConfig: { temperature: 0.3, maxOutputTokens: 1000 },
+              }),
               signal: AbortSignal.timeout(45000),
             });
-            const result = await response.json().catch(() => ({})) as ModelResponse;
+            const result = await response.json().catch(() => ({})) as GeminiResponse;
             if (!response.ok) {
-              console.error("[AI chat] Provider request failed:", response.status);
-              const status = response.status === 401 || response.status === 403 ? 503 : 502;
-              return Response.json({ error: status === 503 ? "AI provider key rejected. Cloudflare secret OPENAI_API_KEY जाँचें।" : "AI provider से जवाब नहीं मिला। कुछ देर बाद फिर कोशिश करें।" }, { status, headers: noStoreHeaders() });
+              console.error("[AI chat] Gemini request failed:", response.status);
+              if (response.status === 401 || response.status === 403) {
+                return Response.json(
+                  { error: "Gemini API key अस्वीकार हुई। Cloudflare secret GEMINI_API_KEY जाँचें।" },
+                  { status: 503, headers: noStoreHeaders() },
+                );
+              }
+              if (response.status === 429) {
+                return Response.json(
+                  { error: "Gemini API की free-tier सीमा पूरी हो सकती है। थोड़ी देर बाद फिर प्रयास करें या Google AI Studio में quota जाँचें।" },
+                  { status: 429, headers: noStoreHeaders() },
+                );
+              }
+              return Response.json(
+                { error: "Gemini API से जवाब नहीं मिला। कुछ देर बाद फिर कोशिश करें।" },
+                { status: 502, headers: noStoreHeaders() },
+              );
             }
-            const assistant = result.choices?.[0]?.message;
-            if (!assistant) throw new Error("AI provider returned an empty response.");
-            conversation.push({ role: "assistant", content: assistant.content ?? null, ...(assistant.tool_calls ? { tool_calls: assistant.tool_calls } : {}) });
-            const calls = assistant.tool_calls ?? [];
-            if (!calls.length) { finalText = assistant.content?.trim() ?? ""; break; }
 
+            const assistant = result.candidates?.[0]?.content;
+            if (!assistant || !Array.isArray(assistant.parts)) {
+              throw new Error("Gemini returned an empty response.");
+            }
+            conversation.push(assistant as unknown as Record<string, unknown>);
+
+            const calls = assistant.parts
+              .map((part) => part.functionCall)
+              .filter((call): call is GeminiFunctionCall => Boolean(call?.name));
+            if (!calls.length) {
+              finalText = assistant.parts
+                .filter((part) => typeof part.text === "string")
+                .map((part) => part.text)
+                .join("\n")
+                .trim();
+              break;
+            }
+
+            const functionResponseParts: Array<Record<string, unknown>> = [];
             for (const call of calls) {
               let toolResult: unknown;
               try {
-                const executed = await executeReadTool(sessionId, call.function.name, parseArguments(call.function.arguments));
+                const executed = await executeReadTool(sessionId, call.name, parseArguments(call.args));
                 if (executed.action) {
                   if (pendingAction) {
                     // The UI confirms exactly one action per turn. Never tell the model that
@@ -187,8 +266,15 @@ export const Route = createFileRoute("/api/public/ai/chat")({
               } catch (error) {
                 toolResult = { error: error instanceof Error ? error.message : "Tool could not be completed." };
               }
-              conversation.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(toolResult).slice(0, 12000) });
+              functionResponseParts.push({
+                functionResponse: {
+                  name: call.name,
+                  response: { result: toolResult },
+                  ...(call.id ? { id: call.id } : {}),
+                },
+              });
             }
+            conversation.push({ role: "function", parts: functionResponseParts });
           }
           if (!finalText) finalText = pendingAction
             ? "मैंने action तैयार कर दिया है। उसे Instagram पर भेजने से पहले नीचे exact details देखकर Confirm दबाएँ।"
@@ -196,7 +282,7 @@ export const Route = createFileRoute("/api/public/ai/chat")({
           return Response.json({ message: finalText, action: pendingAction }, { headers: noStoreHeaders() });
         } catch (error) {
           console.error("[AI chat]", error instanceof Error ? error.message : "Unexpected provider error");
-          return Response.json({ error: "AI chat में समस्या आई। OPENAI_MODEL और OPENAI_API_KEY configuration जाँचकर फिर प्रयास करें।" }, { status: 502, headers: noStoreHeaders() });
+          return Response.json({ error: "AI chat में समस्या आई। GEMINI_MODEL और GEMINI_API_KEY configuration जाँचकर फिर प्रयास करें।" }, { status: 502, headers: noStoreHeaders() });
         }
       },
     },
