@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { Check, Upload, ShieldCheck, Loader2, Info, Copy, KeyRound, Trash2, ExternalLink } from "lucide-react";
-import { Button, Card, ConfirmDialog, DemoBadge, PageHeader } from "@/components/ui-kit";
-import { actions, ALL_SCOPES, useAppState } from "@/lib/app-store";
+import { Check, ShieldCheck, Loader2, Info, Copy, KeyRound, Trash2, ExternalLink } from "lucide-react";
+import { Button, Card, ConfirmDialog, PageHeader } from "@/components/ui-kit";
+import { ALL_SCOPES } from "@/lib/instagram-scopes";
 import { useMetaConfig } from "@/lib/use-mode";
 
 export const Route = createFileRoute("/connect")({
@@ -36,13 +36,10 @@ const oauthMsg: Record<string, string> = {
 };
 
 function Connect() {
-  const s = useAppState();
   const { oauth } = Route.useSearch();
   const cfg = useMetaConfig();
   const live = cfg.data?.configured === true;
-  const [name, setName] = useState(s.connector.serverName || "instagram-studio");
-  const [icon, setIcon] = useState<string | null>(s.connector.icon);
-  const [scopes, setScopes] = useState<string[]>(s.connector.scopes.length ? s.connector.scopes : ALL_SCOPES.map(x => x.id));
+  const [scopes, setScopes] = useState<string[]>(ALL_SCOPES.map(x => x.id));
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -54,8 +51,7 @@ function Connect() {
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
   const [keyBusy, setKeyBusy] = useState(false);
 
-  const nameOk = /^[a-z0-9-]{3,40}$/.test(name);
-  const canSubmit = nameOk && consent && scopes.length > 0 && !busy;
+  const canSubmit = live && !cfg.isLoading && consent && scopes.length > 0 && !busy;
 
   const refreshLiveStatus = useCallback(async () => {
     try {
@@ -74,53 +70,34 @@ function Connect() {
 
   useEffect(() => { void refreshLiveStatus(); }, [oauth, refreshLiveStatus]);
 
-  function onIcon(file?: File) {
-    if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 500_000) {
-      setErr("Icon must be an image under 500 KB.");
+  async function submit() {
+    setErr(null);
+    if (!live) {
+      setErr("Server setup is incomplete. Open Setup and configure the required Instagram and Supabase secrets before connecting.");
       return;
     }
-    setErr(null);
-    const reader = new FileReader();
-    reader.onload = () => setIcon(String(reader.result));
-    reader.readAsDataURL(file);
-  }
-
-  async function submit() {
+    if (!consent || scopes.length === 0 || busy) return;
     setBusy(true);
-    setErr(null);
-    try {
-      if (live) {
-        window.location.href = `/api/public/meta/start?scopes=${encodeURIComponent(scopes.join(","))}`;
-        return;
-      }
-      await new Promise(resolve => setTimeout(resolve, 400));
-      actions.saveConnector({ serverName: name, icon, scopes, consent, connected: true });
-      actions.log({ action: "connector.create", detail: `Created “${name}” in demo mode with ${scopes.length} scopes`, status: "success", mode: "DEMO" });
-    } catch (error) {
-      setErr(error instanceof Error ? error.message : "Connection failed.");
-    } finally {
-      setBusy(false);
-    }
+    window.location.href = `/api/public/meta/start?scopes=${encodeURIComponent(scopes.join(","))}`;
   }
 
   async function disconnect() {
     setConfirm(false);
-    if (liveStatus.connected) {
-      try {
-        const response = await fetch("/api/public/meta/disconnect", { method: "POST", credentials: "same-origin" });
-        if (!response.ok) throw new Error("Server could not disconnect the account.");
-        setLiveStatus({ connected: false });
-        setKeys([]);
-        setNewKey(null);
-        setKeyMessage("Instagram disconnected. MCP keys have been revoked.");
-      } catch (error) {
-        setErr(error instanceof Error ? error.message : "Disconnect failed.");
-      }
+    if (!liveStatus.connected) {
+      setErr("No live Instagram connection is active.");
       return;
     }
-    actions.disconnect();
-    actions.log({ action: "connector.disconnect", detail: `Disconnected “${s.connector.serverName}”`, status: "success", mode: "DEMO" });
+    setErr(null);
+    try {
+      const response = await fetch("/api/public/meta/disconnect", { method: "POST", credentials: "same-origin" });
+      if (!response.ok) throw new Error("Server could not disconnect the account.");
+      setLiveStatus({ connected: false });
+      setKeys([]);
+      setNewKey(null);
+      setKeyMessage("Instagram disconnected. MCP keys have been revoked.");
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Disconnect failed.");
+    }
   }
 
   async function createKey() {
@@ -169,11 +146,11 @@ function Connect() {
     }
   }
 
-  const connected = liveStatus.connected || (!live && s.connector.connected);
+  const connected = liveStatus.connected;
 
   return (
     <>
-      <PageHeader title="Connect Instagram" subtitle="Official Instagram Login, encrypted token storage and an authenticated MCP endpoint." right={!live && <DemoBadge />} />
+      <PageHeader title="Connect Instagram" subtitle="Official Instagram Login, encrypted token storage and an authenticated MCP endpoint." />
 
       {oauth && oauthMsg[oauth] && (
         <div className="mb-4 flex gap-2 rounded-xl bg-warning-soft p-3 text-sm">
@@ -185,10 +162,10 @@ function Connect() {
       {connected && (
         <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 border-primary/40">
           <div className="flex items-center gap-3">
-            {icon ? <img src={icon} alt="" className="h-10 w-10 rounded-lg object-cover" /> : <div className="h-10 w-10 rounded-lg bg-brand" />}
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand text-xs font-bold text-primary-foreground">IG</div>
             <div>
-              <p className="font-semibold">{liveStatus.connected ? `@${liveStatus.account?.username || "Instagram account"}` : s.connector.serverName}</p>
-              <p className="text-xs text-muted-foreground">{liveStatus.connected ? `Live connection · ${liveStatus.account?.scopes?.length ?? 0} permissions` : "Demo connection — no Instagram data is accessed"}</p>
+              <p className="font-semibold">@{liveStatus.account?.username || "Instagram account"}</p>
+              <p className="text-xs text-muted-foreground">Live connection · {liveStatus.account?.scopes?.length ?? 0} permissions</p>
             </div>
           </div>
           <Button variant="outline" onClick={() => setConfirm(true)}>Disconnect</Button>
@@ -196,24 +173,15 @@ function Connect() {
       )}
 
       <Card className="mx-auto max-w-xl space-y-6">
-        <Step n={1} title="Connector name">
-          <input value={name} onChange={event => setName(event.target.value.toLowerCase())} className="w-full rounded-xl border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="instagram-studio" />
-          {!nameOk && <p className="mt-1 text-xs text-destructive">3–40 lowercase letters, numbers or dashes.</p>}
-        </Step>
-        <Step n={2} title="Icon (optional)">
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3 hover:bg-muted">
-            {icon ? <img src={icon} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <div className="grid h-12 w-12 place-items-center rounded-lg bg-muted"><Upload className="h-5 w-5 text-muted-foreground" /></div>}
-            <span className="text-sm text-muted-foreground">PNG or JPG, under 500 KB</span>
-            <input type="file" accept="image/*" className="hidden" onChange={event => onIcon(event.target.files?.[0])} />
-          </label>
-        </Step>
-        <Step n={3} title="Server configuration">
+        <Step n={1} title="Server configuration">
           <div className="flex items-center justify-between rounded-xl bg-muted p-3 text-sm">
             <span>Instagram API + secure storage</span>
-            {cfg.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : live ? <span className="font-semibold text-primary">Configured</span> : <span className="font-semibold text-magenta">Setup required</span>}
+            {cfg.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : live ? <span className="font-semibold text-primary">Configured</span> : <span className="font-semibold text-destructive">Setup required</span>}
           </div>
+          {!live && !cfg.isLoading && <p className="mt-2 text-sm text-muted-foreground">No fake connection is created. Configure the real server secrets first.</p>}
+          {!live && !cfg.isLoading && <Link to="/setup" className="mt-3 inline-flex text-sm font-semibold text-primary underline">Open setup guide</Link>}
         </Step>
-        <Step n={4} title="Permissions">
+        <Step n={2} title="Instagram permissions">
           <div className="space-y-2">
             {ALL_SCOPES.map(scope => {
               const checked = scopes.includes(scope.id);
@@ -233,9 +201,9 @@ function Connect() {
         {err && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{err}</p>}
         <Button className="w-full py-3" disabled={!canSubmit} onClick={submit}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-          {live ? "Connect with Instagram" : connected ? "Update connector (demo)" : "Create connector (demo)"}
+          Connect with Instagram
         </Button>
-        <p className="text-center text-xs text-muted-foreground">Your Instagram password is never collected. Authorization happens on Instagram.</p>
+        <p className="text-center text-xs text-muted-foreground">Your Instagram password is never collected. Authorization happens on Instagram. No mock account or simulated API key is created.</p>
       </Card>
 
       {liveStatus.connected && (

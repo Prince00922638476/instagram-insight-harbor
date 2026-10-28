@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { hashApiKey, instagramApi, noStoreHeaders } from "@/lib/instagram.server";
+import { hashApiKey, instagramApi, noStoreHeaders, readLimitedRequestBody } from "@/lib/instagram.server";
 
 type RpcRequest = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> };
 type ApiKeyRow = { id: string; user_id: string; revoked_at: string | null; expires_at: string };
@@ -42,14 +42,22 @@ export const Route = createFileRoute("/api/mcp")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
+        if (request.headers.get("content-type")?.split(";")[0]?.trim() !== "application/json") {
           return new Response("Content-Type must be application/json", { status: 415, headers: noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }) });
         }
         const auth = request.headers.get("authorization") ?? "";
         const suppliedKey = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
         if (!/^ib_mcp_[A-Za-z0-9_-]{40,}$/.test(suppliedKey)) return new Response("Unauthorized", { status: 401, headers: noStoreHeaders({ "WWW-Authenticate": "Bearer" }) });
+        const bodyRead = await readLimitedRequestBody(request, 64_000);
+        if (!bodyRead.ok) {
+          if (bodyRead.reason === "too_large") {
+            return new Response("Request body too large.", { status: 413, headers: noStoreHeaders({ "Content-Type": "text/plain; charset=utf-8" }) });
+          }
+          return rpcError(null, -32700, "Could not read request body.");
+        }
+        const rawBody = bodyRead.text;
         let rpc: RpcRequest;
-        try { rpc = await request.json() as RpcRequest; } catch { return rpcError(null, -32700, "Parse error."); }
+        try { rpc = JSON.parse(rawBody) as RpcRequest; } catch { return rpcError(null, -32700, "Parse error."); }
         if (rpc.jsonrpc !== "2.0" || typeof rpc.method !== "string") return rpcError(rpc.id, -32600, "Invalid JSON-RPC request.");
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -65,7 +73,7 @@ export const Route = createFileRoute("/api/mcp")({
           }
           if (rpc.method === "initialize") {
             return rpcResult(id, {
-              protocolVersion: typeof params.protocolVersion === "string" && ["2025-06-18", "2025-03-26", "2024-11-05"].includes(params.protocolVersion) ? params.protocolVersion : "2025-06-18",
+              protocolVersion: typeof params["protocolVersion"] === "string" && ["2025-06-18", "2025-03-26", "2024-11-05"].includes(params["protocolVersion"]) ? params["protocolVersion"] : "2025-06-18",
               capabilities: { tools: {} },
               serverInfo: { name: "instagram-insight-harbor", version: "1.0.0" },
               instructions: "Write tools require confirmed=true. Only confirm a write after the user reviews the exact action.",
@@ -74,8 +82,17 @@ export const Route = createFileRoute("/api/mcp")({
           if (rpc.method === "ping") return rpcResult(id, {});
           if (rpc.method === "tools/list") return rpcResult(id, { tools });
           if (rpc.method !== "tools/call") return rpcError(id, -32601, "Method not found.");
-          const toolName = params.name;
-          const args = isRecord(params.arguments) ? params.arguments : {};
+          const toolName = params["name"];
+          const args = isRecord(params["arguments"]) ? params["arguments"] : {};
+          const { data: connection, error: connectionError } = await supabaseAdmin
+            .from("instagram_connections")
+            .select("ig_user_id,scopes,status")
+            .eq("user_id", apiKey.user_id)
+            .maybeSingle();
+          if (connectionError || connection?.status !== "connected") {
+            return rpcResult(id, textResult({ error: "Instagram is not connected. Reconnect the account before using Instagram tools." }, true));
+          }
+          const scopes: string[] = Array.isArray(connection.scopes) ? connection.scopes : [];
           const write = async (action: string, detail: string) => {
             const { error } = await supabaseAdmin.from("activity_log").insert({ user_id: apiKey.user_id, action, detail: detail.slice(0, 1000), status: "success" });
             if (error) console.error("[MCP activity log] Unable to record action.");
@@ -87,56 +104,59 @@ export const Route = createFileRoute("/api/mcp")({
             } else if (toolName === "list_media") {
               result = await instagramApi(apiKey.user_id, "me/media", {
                 fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
-                limit: String(positiveInt(args.limit, 20, 50)),
+                limit: String(positiveInt(args["limit"], 20, 50)),
               });
             } else if (toolName === "get_media_insights") {
-              if (typeof args.media_id !== "string" || !args.media_id.trim()) throw new Error("media_id is required.");
+              if (!scopes.includes("instagram_business_manage_insights")) throw new Error("The connected account lacks insights permission.");
+              if (typeof args["media_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["media_id"])) throw new Error("media_id must be a valid Instagram object ID.");
               const allow = new Set(["views", "reach", "likes", "comments", "saved", "shares", "total_interactions", "accounts_engaged"]);
-              const requested = Array.isArray(args.metrics) ? args.metrics.filter((v): v is string => typeof v === "string" && allow.has(v)) : ["reach", "likes", "comments", "saved", "shares"];
+              const requested = Array.isArray(args["metrics"]) ? args["metrics"].filter((v): v is string => typeof v === "string" && allow.has(v)) : ["reach", "likes", "comments", "saved", "shares"];
               if (!requested.length) throw new Error("Choose at least one supported metric.");
-              result = await instagramApi(apiKey.user_id, `${args.media_id}/insights`, { metric: [...new Set(requested)].join(",") });
+              result = await instagramApi(apiKey.user_id, `${args["media_id"]}/insights`, { metric: [...new Set(requested)].join(",") });
             } else if (toolName === "list_comments") {
-              if (typeof args.media_id !== "string" || !args.media_id.trim()) throw new Error("media_id is required.");
-              result = await instagramApi(apiKey.user_id, `${args.media_id}/comments`, { fields: "id,text,username,timestamp", limit: String(positiveInt(args.limit, 50, 100)) });
+              if (!scopes.includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
+              if (typeof args["media_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["media_id"])) throw new Error("media_id must be a valid Instagram object ID.");
+              result = await instagramApi(apiKey.user_id, `${args["media_id"]}/comments`, { fields: "id,text,username,timestamp", limit: String(positiveInt(args["limit"], 50, 100)) });
             } else if (toolName === "reply_to_comment") {
-              if (args.confirmed !== true) throw new Error("Action not executed. Obtain the user's approval for this exact reply, then pass confirmed=true.");
-              if (typeof args.comment_id !== "string" || !args.comment_id.trim()) throw new Error("comment_id is required.");
-              if (typeof args.message !== "string" || !args.message.trim() || args.message.length > 1000) throw new Error("message must be 1–1000 characters.");
-              result = await instagramApi(apiKey.user_id, `${args.comment_id}/replies`, { message: args.message.trim() }, "POST");
-              await write("comment.reply", `Comment ${args.comment_id}: ${args.message.trim()}`);
+              if (!scopes.includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
+              if (args["confirmed"] !== true) throw new Error("Action not executed. Obtain the user's approval for this exact reply, then pass confirmed=true.");
+              if (typeof args["comment_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["comment_id"])) throw new Error("comment_id must be a valid Instagram object ID.");
+              if (typeof args["message"] !== "string" || !args["message"].trim() || args["message"].length > 1000) throw new Error("message must be 1–1000 characters.");
+              result = await instagramApi(apiKey.user_id, `${args["comment_id"]}/replies`, { message: args["message"].trim() }, "POST");
+              await write("comment.reply", `Comment ${args["comment_id"]}: ${args["message"].trim()}`);
             } else if (toolName === "hide_comment") {
-              if (args.confirmed !== true) throw new Error("Action not executed. Obtain the user's approval, then pass confirmed=true.");
-              if (typeof args.comment_id !== "string" || !args.comment_id.trim()) throw new Error("comment_id is required.");
-              result = await instagramApi(apiKey.user_id, String(args.comment_id), { hide: "true" }, "POST");
-              await write("comment.hide", `Comment ${args.comment_id}`);
+              if (!scopes.includes("instagram_business_manage_comments")) throw new Error("The connected account lacks comment-management permission.");
+              if (args["confirmed"] !== true) throw new Error("Action not executed. Obtain the user's approval, then pass confirmed=true.");
+              if (typeof args["comment_id"] !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(args["comment_id"])) throw new Error("comment_id must be a valid Instagram object ID.");
+              result = await instagramApi(apiKey.user_id, String(args["comment_id"]), { hide: "true" }, "POST");
+              await write("comment.hide", `Comment ${args["comment_id"]}`);
             } else if (toolName === "publish_media") {
-              if (args.confirmed !== true) throw new Error("Action not executed. The user must approve this exact public post, URL and caption; then pass confirmed=true.");
-              const mediaUrl = safeHttpsUrl(args.media_url);
+              if (!scopes.includes("instagram_business_content_publish")) throw new Error("The connected account lacks content-publishing permission.");
+              if (args["confirmed"] !== true) throw new Error("Action not executed. The user must approve this exact public post, URL and caption; then pass confirmed=true.");
+              const mediaUrl = safeHttpsUrl(args["media_url"]);
               if (!mediaUrl) throw new Error("media_url must be a valid public HTTPS URL.");
-              if (args.media_type !== "IMAGE" && args.media_type !== "REELS") throw new Error("media_type must be IMAGE or REELS.");
-              const caption = typeof args.caption === "string" ? args.caption : "";
+              if (args["media_type"] !== "IMAGE" && args["media_type"] !== "REELS") throw new Error("media_type must be IMAGE or REELS.");
+              const caption = typeof args["caption"] === "string" ? args["caption"] : "";
               if (caption.length > 2200) throw new Error("caption must be at most 2,200 characters.");
-              const { data: connection, error: connectionError } = await supabaseAdmin.from("instagram_connections")
-                .select("ig_user_id").eq("user_id", apiKey.user_id).eq("status", "connected").maybeSingle();
-              if (connectionError || !connection?.ig_user_id) throw new Error("Instagram account details are unavailable. Reconnect the account.");
+              if (!connection.ig_user_id) throw new Error("Instagram account details are unavailable. Reconnect the account.");
               const containerParams: Record<string, string> = { caption };
-              if (args.media_type === "IMAGE") containerParams.image_url = mediaUrl;
-              else { containerParams.video_url = mediaUrl; containerParams.media_type = "REELS"; }
+              if (args["media_type"] === "IMAGE") containerParams["image_url"] = mediaUrl;
+              else { containerParams["video_url"] = mediaUrl; containerParams["media_type"] = "REELS"; }
               const container = await instagramApi(apiKey.user_id, `${connection.ig_user_id}/media`, containerParams, "POST");
-              const containerId = typeof container.id === "string" ? container.id : "";
+              const containerId = typeof container["id"] === "string" ? container["id"] : "";
               if (!containerId) throw new Error("Instagram did not return a media container ID.");
-              if (args.media_type === "REELS") {
+              if (args["media_type"] === "REELS") {
                 let finished = false;
                 for (let i = 0; i < 8; i++) {
                   await new Promise(resolve => setTimeout(resolve, 2000));
                   const status = await instagramApi(apiKey.user_id, containerId, { fields: "status_code" });
-                  if (status.status_code === "FINISHED") { finished = true; break; }
-                  if (status.status_code === "ERROR" || status.status_code === "EXPIRED") throw new Error("Instagram could not process this reel URL.");
+                  if (status["status_code"] === "FINISHED") { finished = true; break; }
+                  if (status["status_code"] === "ERROR" || status["status_code"] === "EXPIRED") throw new Error("Instagram could not process this reel URL.");
                 }
                 if (!finished) throw new Error("Instagram is still processing this reel. Check the media container before retrying.");
               }
               result = await instagramApi(apiKey.user_id, `${connection.ig_user_id}/media_publish`, { creation_id: containerId }, "POST");
-              await write("media.publish", `${args.media_type}: ${mediaUrl} — ${caption.slice(0, 300)}`);
+              await write("media.publish", `${args["media_type"]}: ${mediaUrl} — ${caption.slice(0, 300)}`);
             } else {
               return rpcResult(id, textResult({ error: `Unknown tool: ${String(toolName)}` }, true));
             }

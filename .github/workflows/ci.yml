@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "feature/ai-chat-automation"]
   push:
-    branches: [main, "fix/instagram-oauth-mcp", "feature/ai-chat-automation"]
+    branches: [main, "fix/instagram-oauth-mcp", "feature/ai-chat-automation", "fix/ai-chat-automation-stability"]
 
 jobs:
   verify:
@@ -25,3 +25,5 @@ jobs:
           bun run build
           test -f .output/server/index.mjs
           test -f .output/server/wrangler.json
+      - name: TypeScript typecheck
+        run: bun run typecheck

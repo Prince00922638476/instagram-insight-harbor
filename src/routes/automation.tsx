@@ -96,7 +96,7 @@ function Automation() {
       const data = await response.json() as { error?: string; settings?: Settings };
       if (!response.ok) throw new Error(data.error || "Settings save नहीं हुईं।");
       if (data.settings) setSettings({ ...defaultSettings, ...data.settings });
-      setNotice("Settings save हो गईं। Meta webhook में comments subscription भी चालू होना चाहिए।");
+      setNotice("Settings save हो गईं। Instagram account की comments subscription register की गई; Meta Developer Dashboard में app-level webhook callback और comments field भी verified होने चाहिए।");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Settings save नहीं हुईं।");
@@ -148,7 +148,7 @@ function Automation() {
           </div>
           {!serverStatus?.connected && <p className="mt-4 text-sm">पहले <Link to="/connect" className="font-semibold text-primary underline">Connect Instagram</Link> खोलकर account connect करो।</p>}
           {!serverStatus?.aiConfigured && <p className="mt-2 text-sm text-muted-foreground">AI replies के लिए Cloudflare Worker secret <code>OPENAI_API_KEY</code> जोड़ना होगा। Key को chat या GitHub में मत डालना।</p>}
-          {!serverStatus?.webhookConfigured && <p className="mt-2 text-sm text-muted-foreground">Draft और Auto दोनों modes के लिए Cloudflare Worker secrets <code>META_WEBHOOK_VERIFY_TOKEN</code> और <code>META_APP_SECRET</code> भी जरूरी हैं।</p>}
+          {!serverStatus?.webhookConfigured && <p className="mt-2 text-sm text-muted-foreground">Draft और Auto दोनों modes के लिए Cloudflare Worker secrets <code>META_WEBHOOK_VERIFY_TOKEN</code> और <code>INSTAGRAM_APP_SECRET</code> जरूरी हैं। पुराने deployments में <code>META_APP_SECRET</code> fallback के रूप में स्वीकार होता है।</p>}
         </Card>
 
         <Card className="mb-5">
@@ -163,7 +163,7 @@ function Automation() {
           </div>
           <label className="mb-2 block text-sm font-semibold">AI reply instructions</label>
           <textarea value={settings.reply_instruction} onChange={e => setSettings(s => ({ ...s, reply_instruction: e.target.value.slice(0, 600) }))} maxLength={600} rows={3} className="mb-4 w-full rounded-xl border bg-background px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
-          {settings.mode === "auto" && <div className="mb-4 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm"><p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" />Public replies automatic होंगे</p><p className="mt-1">यह केवल matching keyword वाले नए comments पर लागू होगा। पहले अपने test account पर जाँचो। Auto-send के लिए Meta webhook subscription, सही secrets, AI key और migration 0002 जरूरी हैं।</p></div>}
+          {settings.mode === "auto" && <div className="mb-4 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm"><p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" />Public replies automatic होंगे</p><p className="mt-1">यह केवल matching keyword वाले नए comments पर लागू होगा। पहले अपने test account पर जाँचो। Auto-send के लिए Meta app-level webhook और account subscription, सही server secrets, AI key तथा Supabase migrations 0002 और 0003 जरूरी हैं।</p></div>}
           <button onClick={() => void saveSettings()} disabled={saving || !settings.trigger_keyword.trim() || !settings.reply_instruction.trim()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Saving…" : "Save automation settings"}</button>
         </Card>
 
@@ -172,8 +172,8 @@ function Automation() {
           <p className="mb-2 text-sm text-muted-foreground">Webhook server-side पर चलता है—browser बंद होने पर भी Meta event भेजे तो rule चल सकता है। Meta Developer Dashboard में app के Webhooks में Instagram object और <code>comments</code> field subscribe करनी होगी।</p>
           <label className="mb-1 block text-xs font-semibold text-muted-foreground">Callback URL</label>
           <div className="break-all rounded-xl bg-muted p-3 font-mono text-xs">{webhookUrl}</div>
-          <p className="mb-2 mt-3 text-xs text-muted-foreground">Verify token: Cloudflare Worker secret <code>META_WEBHOOK_VERIFY_TOKEN</code> में अपना random token set करो और Meta dashboard में वही token डालो। Meta App Secret और AI key केवल server secrets में रहें।</p>
-          <p className="text-xs text-muted-foreground">इसके बाद Supabase में <code>drizzle/migrations/0002_instagram_automation.sql</code> एक बार run करना है।</p>
+          <p className="mb-2 mt-3 text-xs text-muted-foreground">Verify token: Cloudflare Worker secret <code>META_WEBHOOK_VERIFY_TOKEN</code> में अपना random token set करो और Meta dashboard में वही token डालो। <code>INSTAGRAM_APP_SECRET</code> (या legacy <code>META_APP_SECRET</code>) और AI key केवल server secrets में रखें।</p>
+          <p className="text-xs text-muted-foreground">इसके बाद Supabase SQL Editor में पहले <code>drizzle/migrations/0002_instagram_automation.sql</code>, फिर <code>drizzle/migrations/0003_permissions_hardening.sql</code> चलाएँ। इन्हें उसी क्रम में एक बार लागू करें।</p>
         </Card>
 
         <Card>

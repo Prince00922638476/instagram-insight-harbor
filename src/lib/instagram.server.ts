@@ -66,9 +66,15 @@ export function encryptToken(value: string): string {
 export function decryptToken(value: string): string {
   const [iv, tag, ciphertext, extra] = value.split(".");
   if (!iv || !tag || !ciphertext || extra) throw new Error("The saved token format is invalid. Reconnect Instagram.");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64"));
-  decipher.setAuthTag(Buffer.from(tag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
+  const ivBytes = Buffer.from(iv, "base64");
+  const tagBytes = Buffer.from(tag, "base64");
+  const ciphertextBytes = Buffer.from(ciphertext, "base64");
+  if (ivBytes.length !== 12 || tagBytes.length !== 16) {
+    throw new Error("The saved token format is invalid. Reconnect Instagram.");
+  }
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), ivBytes, { authTagLength: 16 });
+  decipher.setAuthTag(tagBytes);
+  return Buffer.concat([decipher.update(ciphertextBytes), decipher.final()]).toString("utf8");
 }
 
 export function noStoreHeaders(extra?: HeadersInit): Headers {
@@ -84,6 +90,71 @@ export function graphVersion(): string {
   const version = process.env["INSTAGRAM_GRAPH_API_VERSION"] ?? "v25.0";
   return /^v[0-9]+[.]0$/.test(version) ? version : "v25.0";
 }
+export type LimitedRequestBodyResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: "too_large" | "read_error" | "invalid_utf8" };
+
+/**
+ * Read a request body with a streaming byte limit. Checking the length only
+ * after request.text() is too late because an oversized body has already been
+ * buffered in memory.
+ */
+export async function readLimitedRequestBody(
+  request: Request,
+  maxBytes: number,
+): Promise<LimitedRequestBodyResult> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) {
+    throw new Error("maxBytes must be a non-negative safe integer.");
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > maxBytes) {
+    try {
+      await request.body?.cancel();
+    } catch {
+      // The streaming limit below remains authoritative if cancellation fails.
+    }
+    return { ok: false, reason: "too_large" };
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { ok: true, text: "" };
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          // The request is rejected even if the stream cannot be cancelled.
+        }
+        return { ok: false, reason: "too_large" };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, reason: "read_error" };
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return { ok: true, text: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
+  } catch {
+    return { ok: false, reason: "invalid_utf8" };
+  }
+}
+
 export async function loadInstagramToken(sessionId: string): Promise<string> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const [{ data: tokenRow, error: tokenError }, { data: connection, error: connectionError }] = await Promise.all([
@@ -116,6 +187,14 @@ export async function loadInstagramToken(sessionId: string): Promise<string> {
   return token;
 }
 
+export function normalizeInstagramApiPath(path: string): string {
+  const segments = path.split("/").filter(Boolean);
+  if (!segments.length || segments.some(segment => !/^[A-Za-z0-9_-]{1,256}$/.test(segment))) {
+    throw new Error("Invalid Instagram API path.");
+  }
+  return segments.map(segment => encodeURIComponent(segment)).join("/");
+}
+
 export async function instagramApi(
   sessionId: string,
   path: string,
@@ -123,7 +202,7 @@ export async function instagramApi(
   method: "GET" | "POST" = "GET",
 ): Promise<Record<string, unknown>> {
   const token = await loadInstagramToken(sessionId);
-  const safePath = path.split("/").filter(Boolean).map(segment => encodeURIComponent(segment)).join("/");
+  const safePath = normalizeInstagramApiPath(path);
   const url = new URL(`https://graph.instagram.com/${graphVersion()}/${safePath}`);
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -138,7 +217,7 @@ export async function instagramApi(
     signal: AbortSignal.timeout(20000),
   });
   const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-  if (!response.ok || data.error) {
+  if (!response.ok || data["error"]) {
     const apiError = data["error"] as {
       message?: string;
       type?: string;
@@ -169,10 +248,10 @@ export class InstagramApiError extends Error {
     super(message);
     this.name = "InstagramApiError";
     this.httpStatus = httpStatus;
-    this.code = code;
-    this.subcode = subcode;
-    this.type = type;
-    this.traceId = traceId;
+    if (code !== undefined) this.code = code;
+    if (subcode !== undefined) this.subcode = subcode;
+    if (type !== undefined) this.type = type;
+    if (traceId !== undefined) this.traceId = traceId;
   }
 
   toSafeJSON(): { message: string; httpStatus: number; code?: number; subcode?: number; type?: string; traceId?: string } {

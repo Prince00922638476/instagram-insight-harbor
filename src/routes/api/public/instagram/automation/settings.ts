@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 const SETTINGS_FIELDS = "enabled,mode,trigger_keyword,reply_instruction,updated_at";
 const DEFAULT_SETTINGS = {
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
             connected: connection?.status === "connected",
             commentPermission: (connection?.scopes ?? []).includes("instagram_business_manage_comments"),
             aiConfigured: Boolean(process.env["OPENAI_API_KEY"]),
-            webhookConfigured: Boolean(process.env["META_WEBHOOK_VERIFY_TOKEN"] && process.env["META_APP_SECRET"]),
+            webhookConfigured: Boolean(process.env["META_WEBHOOK_VERIFY_TOKEN"] && (process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"])),
           }, { headers: noStoreHeaders() });
         } catch (error) {
           console.error("[Automation settings GET]", error instanceof Error ? error.message : "Storage unavailable");
@@ -40,8 +40,17 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        const bodyRead = await readLimitedRequestBody(request, 16_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json(
+            { error: tooLarge ? "Request body is too large." : "Request body could not be read." },
+            { status: tooLarge ? 413 : 400, headers: noStoreHeaders() },
+          );
+        }
+        const rawBody = bodyRead.text;
         let input: Record<string, unknown>;
-        try { input = await request.json() as Record<string, unknown>; } catch {
+        try { input = JSON.parse(rawBody) as Record<string, unknown>; } catch {
           return Response.json({ error: "Send valid JSON." }, { status: 400, headers: noStoreHeaders() });
         }
         const enabled = input["enabled"] === true;
@@ -67,10 +76,21 @@ export const Route = createFileRoute("/api/public/instagram/automation/settings"
             const missing: string[] = [];
             if (!process.env["OPENAI_API_KEY"]) missing.push("OPENAI_API_KEY");
             if (!process.env["META_WEBHOOK_VERIFY_TOKEN"]) missing.push("META_WEBHOOK_VERIFY_TOKEN");
-            if (!process.env["META_APP_SECRET"]) missing.push("META_APP_SECRET");
+            if (!(process.env["INSTAGRAM_APP_SECRET"] || process.env["META_APP_SECRET"])) missing.push("INSTAGRAM_APP_SECRET");
             if (missing.length) {
               const modeLabel = mode === "auto" ? "Auto-reply" : "AI draft mode";
               return Response.json({ error: `${modeLabel} is blocked until these server secrets are configured: ${missing.join(", ")}.` }, { status: 409, headers: noStoreHeaders() });
+            }
+
+            // Register this Instagram account's comments subscription as well as
+            // requiring the separate app-level callback/field setup in Meta.
+            try {
+              await instagramApi(ownerId, "me/subscribed_apps", { subscribed_fields: "comments" }, "POST");
+            } catch (error) {
+              console.error("[Automation settings POST] Instagram comments webhook subscription failed.", error instanceof Error ? error.message : "Unknown error");
+              return Response.json({
+                error: "Instagram account webhook subscription failed. Confirm the Meta app-level Instagram comments webhook is verified in the Developer Dashboard, then reconnect with comment permission and try again.",
+              }, { status: 409, headers: noStoreHeaders() });
             }
           }
           const now = new Date().toISOString();

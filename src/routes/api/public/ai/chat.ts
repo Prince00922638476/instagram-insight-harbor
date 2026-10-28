@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { instagramApi, noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ProposedAction =
@@ -55,7 +55,7 @@ function parseArguments(value: string): Record<string, unknown> {
 
 async function executeReadTool(sessionId: string, name: string, args: Record<string, unknown>): Promise<{ result: unknown; action?: ProposedAction }> {
   if (name === "get_profile") {
-    return { result: await instagramApi(sessionId, "me", { fields: "id,username,account_type,media_count" }) };
+    return { result: await instagramApi(sessionId, "me", { fields: "user_id,username,account_type,media_count" }) };
   }
   if (name === "list_media") {
     const n = typeof args["limit"] === "number" && Number.isInteger(args["limit"]) ? Math.max(1, Math.min(20, args["limit"])) : 10;
@@ -67,19 +67,19 @@ async function executeReadTool(sessionId: string, name: string, args: Record<str
   }
   if (name === "list_comments") {
     const mediaId = typeof args["media_id"] === "string" ? args["media_id"] : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(mediaId)) throw new Error("A valid media ID is required to read comments.");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(mediaId)) throw new Error("A valid media ID is required to read comments.");
     const n = typeof args["limit"] === "number" && Number.isInteger(args["limit"]) ? Math.max(1, Math.min(30, args["limit"])) : 20;
     return { result: await instagramApi(sessionId, `${mediaId}/comments`, { fields: "id,text,username,timestamp", limit: String(n) }) };
   }
   if (name === "propose_reply_to_comment") {
     const id = typeof args["comment_id"] === "string" ? args["comment_id"] : "";
     const message = typeof args["message"] === "string" ? args["message"].trim() : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || !message || message.length > 1000) throw new Error("The reply proposal needs a valid comment ID and a message of 1–1,000 characters.");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !message || message.length > 1000) throw new Error("The reply proposal needs a valid comment ID and a message of 1–1,000 characters.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "reply", comment_id: id, message } };
   }
   if (name === "propose_hide_comment") {
     const id = typeof args["comment_id"] === "string" ? args["comment_id"] : "";
-    if (!/^[A-Za-z0-9_.-]{1,128}$/.test(id) || typeof args["hidden"] !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || typeof args["hidden"] !== "boolean") throw new Error("The hide proposal needs a valid comment ID and hidden=true/false.");
     return { result: { prepared: true, requires_owner_confirmation: true }, action: { action: "hide", comment_id: id, hidden: args["hidden"] } };
   }
   if (name === "propose_generate_image_post") {
@@ -111,8 +111,19 @@ export const Route = createFileRoute("/api/public/ai/chat")({
         const apiKey = process.env["OPENAI_API_KEY"];
         if (!apiKey) return Response.json({ error: "AI chat चालू करने के लिए Cloudflare Worker में OPENAI_API_KEY secret सेट करें। API key को वेबसाइट या GitHub code में न रखें।" }, { status: 503, headers: noStoreHeaders() });
 
+        // Bound the raw request before parsing JSON so a valid session cannot submit
+        // an arbitrarily large body and consume memory before per-message limits apply.
+        const bodyRead = await readLimitedRequestBody(request, 100_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json(
+            { error: tooLarge ? "Chat request बहुत बड़ा है। Messages छोटा करके फिर भेजें।" : "Request body पढ़ा नहीं जा सका।" },
+            { status: tooLarge ? 413 : 400, headers: noStoreHeaders() },
+          );
+        }
+        const rawBody = bodyRead.text;
         let body: { messages?: unknown };
-        try { body = await request.json() as { messages?: unknown }; } catch {
+        try { body = JSON.parse(rawBody) as { messages?: unknown }; } catch {
           return Response.json({ error: "Valid JSON messages भेजें।" }, { status: 400, headers: noStoreHeaders() });
         }
         if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 20) {
@@ -161,8 +172,18 @@ export const Route = createFileRoute("/api/public/ai/chat")({
               let toolResult: unknown;
               try {
                 const executed = await executeReadTool(sessionId, call.function.name, parseArguments(call.function.arguments));
-                if (executed.action && !pendingAction) pendingAction = executed.action;
-                toolResult = executed.result;
+                if (executed.action) {
+                  if (pendingAction) {
+                    // The UI confirms exactly one action per turn. Never tell the model that
+                    // a second action is ready when it will not be shown to the owner.
+                    toolResult = { error: "Only one Instagram action can be proposed per chat turn. The first action is pending owner confirmation; ask the owner to send another message for any additional action." };
+                  } else {
+                    pendingAction = executed.action;
+                    toolResult = executed.result;
+                  }
+                } else {
+                  toolResult = executed.result;
+                }
               } catch (error) {
                 toolResult = { error: error instanceof Error ? error.message : "Tool could not be completed." };
               }

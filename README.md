@@ -10,7 +10,7 @@ Connect an Instagram professional account using Meta's official **Instagram API 
 - Instagram profile, media, eligible insights and comment listing through official Graph API endpoints.
 - Confirmed comment replies, comment hide/unhide and image/reel publishing workflows.
 - MCP endpoint at `/api/mcp` with API-key authentication. Clear API keys are shown only at creation; only a keyed hash is stored.
-- Demo content is kept separate and explicitly labeled when Instagram is not connected.
+- User-facing Instagram views show only live API responses. When an account is not connected, the app shows setup guidance or an empty state instead of fabricated posts, comments, or metrics.
 
 ## Required server-side secrets
 
@@ -18,8 +18,8 @@ Set these using your hosting provider's server-side Secrets/Environment settings
 
 | Name | Purpose |
 |---|---|
-| `META_APP_ID` | Instagram App ID from the Instagram API with Instagram Login product settings |
-| `META_APP_SECRET` | Matching Instagram App Secret |
+| `INSTAGRAM_APP_ID` | Instagram App ID from the Instagram API with Instagram Login product settings. Legacy `META_APP_ID` is accepted as a fallback. |
+| `INSTAGRAM_APP_SECRET` | Matching Instagram product App Secret. Legacy `META_APP_SECRET` is accepted as a fallback. |
 | `META_REDIRECT_URI` | Exact callback URL, for example `https://YOUR-DOMAIN/api/public/meta/callback` |
 | `INSTAGRAM_SESSION_SECRET` | Random secret, at least 32 characters, for signing browser sessions and hashing MCP keys |
 | `INSTAGRAM_TOKEN_ENCRYPTION_KEY` | 32 random bytes encoded as 64 hexadecimal characters for AES-256-GCM |
@@ -36,8 +36,9 @@ Against the connected Supabase database, apply these SQL migrations **once and i
 1. `drizzle/migrations/0000_instagram_core.sql`
 2. `drizzle/migrations/0001_mcp_api_keys.sql`
 3. `drizzle/migrations/0002_instagram_automation.sql`
+4. `drizzle/migrations/0003_permissions_hardening.sql`
 
-The token, OAuth state and automation tables are protected by RLS and only grant server-side service-role access. The clear Instagram token is never sent to the browser. Run migration 0002 before using Automation.
+Sensitive token, OAuth state, API-key, and automation tables are restricted to the server-side service role; user-visible connection summaries, activity, and notification records retain row-level security. The clear Instagram token is never sent to the browser. Apply migrations 0002 and 0003 before using Automation.
 
 ## Meta setup and testing
 
@@ -71,9 +72,9 @@ This repository includes a **manual** GitHub Actions workflow at `.github/workfl
 1. Create/sign in to a Cloudflare account and enable Workers.
 2. In GitHub repository Settings → Secrets and variables → Actions, add `CLOUDFLARE_API_TOKEN` (a token with permission to deploy Workers) and `CLOUDFLARE_ACCOUNT_ID`.
 3. Open Actions → **Deploy to Cloudflare Workers** → Run workflow. Check that the build and deploy steps both pass, then copy the assigned `workers.dev` URL.
-4. In Cloudflare Dashboard → Workers & Pages → the deployed Worker → Settings → Variables and Secrets, add all required server-side variables listed above. Mark `META_APP_SECRET`, session secret, encryption key, Supabase service-role key, `OPENAI_API_KEY` and `META_WEBHOOK_VERIFY_TOKEN` as **Secrets**, not plain text. Set `META_REDIRECT_URI` to `https://YOUR-WORKER-URL/api/public/meta/callback`.
+4. In Cloudflare Dashboard → Workers & Pages → the deployed Worker → Settings → Variables and Secrets, add all required server-side variables listed above. Use `INSTAGRAM_APP_ID` and `INSTAGRAM_APP_SECRET`; legacy `META_APP_ID` and `META_APP_SECRET` remain fallback aliases. Mark `INSTAGRAM_APP_SECRET` (or legacy `META_APP_SECRET`), session secret, encryption key, Supabase service-role key, `OPENAI_API_KEY` and `META_WEBHOOK_VERIFY_TOKEN` as **Secrets**, not plain text. Set `META_REDIRECT_URI` to `https://YOUR-WORKER-URL/api/public/meta/callback`.
 5. In Meta for Developers, add that exact callback URL to the Instagram Login redirect URI allowlist. Save the Meta settings.
-6. In the Supabase SQL Editor, run all three migrations above in order. Use the server-side service-role key only in Cloudflare Secrets; never publish it to GitHub or send it in chat.
+6. In the Supabase SQL Editor, run all four migrations above in order. Use the server-side service-role key only in Cloudflare Secrets; never publish it to GitHub or send it in chat.
 7. Open the deployed site → `/setup` to check environment readiness, then `/connect` to authorize the Instagram account. Test read-only profile/media first, then test write actions only with a safe test post/comment. Configure and verify the Meta comments webhook before enabling Auto-send in `/automation`.
 
 Free tier note: Cloudflare Workers currently has request/CPU limits; free service is not an unlimited or permanent guarantee. Supabase and Meta may also impose their own quotas or review requirements. A custom domain is optional; use the assigned `workers.dev` URL to start.

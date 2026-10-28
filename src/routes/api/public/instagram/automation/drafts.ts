@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { instagramApi, noStoreHeaders, readSession } from "@/lib/instagram.server";
+import { instagramApi, noStoreHeaders, readLimitedRequestBody, readSession } from "@/lib/instagram.server";
 
 export const Route = createFileRoute("/api/public/instagram/automation/drafts")({
   server: {
@@ -26,8 +26,17 @@ export const Route = createFileRoute("/api/public/instagram/automation/drafts")(
         if (request.headers.get("origin") !== new URL(request.url).origin) {
           return Response.json({ error: "Origin mismatch." }, { status: 403, headers: noStoreHeaders() });
         }
+        const bodyRead = await readLimitedRequestBody(request, 8_000);
+        if (!bodyRead.ok) {
+          const tooLarge = bodyRead.reason === "too_large";
+          return Response.json(
+            { error: tooLarge ? "Request body is too large." : "Request body could not be read." },
+            { status: tooLarge ? 413 : 400, headers: noStoreHeaders() },
+          );
+        }
+        const rawBody = bodyRead.text;
         let input: { id?: unknown; action?: unknown; message?: unknown };
-        try { input = await request.json() as typeof input; } catch {
+        try { input = JSON.parse(rawBody) as typeof input; } catch {
           return Response.json({ error: "Send valid JSON." }, { status: 400, headers: noStoreHeaders() });
         }
         if (typeof input.id !== "string" || !/^[0-9a-f-]{36}$/i.test(input.id)) {

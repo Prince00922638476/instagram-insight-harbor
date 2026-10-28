@@ -12,8 +12,8 @@ export const Route = createFileRoute("/setup")({
 });
 
 const requiredSecrets = [
-  ["META_APP_ID", "Instagram App ID from the Instagram API with Instagram Login product settings."],
-  ["META_APP_SECRET", "Instagram App Secret from those same Instagram product settings. Keep it server-side."],
+  ["INSTAGRAM_APP_ID", "Instagram App ID from Instagram API with Instagram Login. Legacy META_APP_ID is accepted if this is unset."],
+  ["INSTAGRAM_APP_SECRET", "Instagram product App Secret used for OAuth and Instagram webhook signature verification. Legacy META_APP_SECRET is accepted if this is unset."],
   ["META_REDIRECT_URI", "Exact HTTPS callback URL, for example https://YOUR-DOMAIN/api/public/meta/callback."],
   ["INSTAGRAM_SESSION_SECRET", "A random secret of at least 32 characters used to sign the browser session cookie."],
   ["INSTAGRAM_TOKEN_ENCRYPTION_KEY", "A random 32-byte key encoded as 64 hexadecimal characters, used for AES-256-GCM token encryption."],
@@ -33,10 +33,10 @@ const steps = [
   ["Configure the Meta app", "In Meta for Developers, add the Instagram API with Instagram Login and use the Instagram App ID/Secret, not a Facebook Login token."],
   ["Set the redirect URI", "Register the exact value of META_REDIRECT_URI in the Instagram product's Business Login settings. It must exactly match the value sent during authorization."],
   ["Add server secrets", "Add every required name below in the deployment's server-side Secrets/Environment settings. Do not commit secret values to GitHub or paste them into chat."],
-  ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql and 0002_instagram_automation.sql once in this order against the connected Supabase database."],
+  ["Apply database migrations", "Run drizzle/migrations/0000_instagram_core.sql, 0001_mcp_api_keys.sql, 0002_instagram_automation.sql and 0003_permissions_hardening.sql in this order against the connected Supabase database."],
   ["Test with your own account", "Start from Connect Instagram and approve the requested scopes. The callback validates one-time state, verifies the profile, exchanges for a long-lived token and stores it encrypted."],
   ["Create an MCP key", "After a successful connection, open Connect Instagram and create an API key. It is shown once; store it in your AI client's secret/header configuration. Revoke it here if needed."],
-  ["Configure comment webhooks", "In Meta Developer Dashboard, configure the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN for verification and subscribe to comments. Start with draft mode in /automation."],
+  ["Configure comment webhooks", "In Meta Developer Dashboard, verify the Instagram comments webhook callback at /api/public/instagram/webhook, use META_WEBHOOK_VERIFY_TOKEN and enable the Instagram object comments field. When automation is enabled, the app also registers the connected account through the Instagram subscribed_apps API. Start with draft mode in /automation."],
   ["Review before public launch", "Meta may require App Review and appropriate access for accounts outside your app roles. Test profile/media, comments and publishing with an account you control before relying on it."],
 ];
 
@@ -73,7 +73,7 @@ function Setup() {
         <li>• Revoke an MCP key or disconnect the account to remove access.</li>
       </ul>
     </Card>
-    <Card className="mt-6" id="mcp">
+    <div id="mcp"><Card className="mt-6">
       <div className="mb-3 flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" /><h2 className="font-bold">MCP endpoint</h2></div>
       <p className="mb-3 text-sm text-muted-foreground">Endpoint: <code>https://YOUR-DOMAIN/api/mcp</code>. Use Streamable HTTP / JSON-RPC and send the generated key in <code>Authorization: Bearer YOUR_KEY</code>. Do not put the key in a URL or frontend source.</p>
       <pre className="overflow-x-auto rounded-xl bg-foreground p-4 text-xs text-background">{`tools:
@@ -85,6 +85,6 @@ function Setup() {
   hide_comment           # confirmed=true required
   publish_media          # confirmed=true required`}</pre>
       <p className="mt-3 text-xs text-muted-foreground">Instagram only allows operations supported by its API, the approved permissions, account type and Meta app mode. A successful code deployment alone does not grant Meta permissions.</p>
-    </Card>
+    </Card></div>
   </>;
 }

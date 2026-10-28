@@ -6,12 +6,28 @@ import {
   graphVersion,
   hashApiKey,
   noStoreHeaders,
+  normalizeInstagramApiPath,
+  readLimitedRequestBody,
   readSession,
   sessionCookie,
   signSession,
 } from "@/lib/instagram.server";
 
 const sessionId = "f5480644-6e19-4f70-9b31-104b4ce60f87";
+
+describe("Instagram API path validation", () => {
+  it("preserves valid API paths", () => {
+    expect(normalizeInstagramApiPath("me/media")).toBe("me/media");
+    expect(normalizeInstagramApiPath("17841400000000000/media_publish")).toBe("17841400000000000/media_publish");
+  });
+
+  it("rejects traversal, query strings, and empty paths", () => {
+    expect(() => normalizeInstagramApiPath("../me")).toThrow("Invalid Instagram API path.");
+    expect(() => normalizeInstagramApiPath("comments/../../me")).toThrow("Invalid Instagram API path.");
+    expect(() => normalizeInstagramApiPath("me?access_token=secret")).toThrow("Invalid Instagram API path.");
+    expect(() => normalizeInstagramApiPath("")).toThrow("Invalid Instagram API path.");
+  });
+});
 
 describe("Instagram server security helpers", () => {
   beforeEach(() => {
@@ -21,7 +37,7 @@ describe("Instagram server security helpers", () => {
   });
 
   it("signs a session cookie and rejects invalid signatures", () => {
-    const cookieHeader = sessionCookie(sessionId).split(";")[0];
+    const cookieHeader = sessionCookie(sessionId).split(";")[0] ?? "";
     expect(readSession(new Request("https://example.test", { headers: { cookie: cookieHeader } }))).toBe(sessionId);
     expect(readSession(new Request("https://example.test", { headers: { cookie: `instabridge_session=${sessionId}.${"0".repeat(64)}` } }))).toBeNull();
     expect(readSession(new Request("https://example.test"))).toBeNull();
@@ -67,5 +83,49 @@ describe("Instagram server security helpers", () => {
     expect(graphVersion()).toBe("v25.0");
     vi.stubEnv("INSTAGRAM_GRAPH_API_VERSION", "v26.0");
     expect(graphVersion()).toBe("v26.0");
+  });
+});
+
+describe("bounded request body reader", () => {
+  it("reads valid JSON within the byte limit", async () => {
+    const request = new Request("https://example.test/api", {
+      method: "POST",
+      body: JSON.stringify({ ok: true }),
+    });
+    await expect(readLimitedRequestBody(request, 64)).resolves.toEqual({
+      ok: true,
+      text: '{"ok":true}',
+    });
+  });
+
+  it("rejects a declared body size above the limit before buffering", async () => {
+    const request = new Request("https://example.test/api", {
+      method: "POST",
+      headers: { "content-length": "100" },
+      body: "{}",
+    });
+    await expect(readLimitedRequestBody(request, 10)).resolves.toEqual({
+      ok: false,
+      reason: "too_large",
+    });
+  });
+
+  it("enforces the limit while streaming when content-length is absent", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("1234"));
+        controller.enqueue(new TextEncoder().encode("5678"));
+        controller.close();
+      },
+    });
+    const request = new Request("https://example.test/api", {
+      method: "POST",
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    await expect(readLimitedRequestBody(request, 6)).resolves.toEqual({
+      ok: false,
+      reason: "too_large",
+    });
   });
 });
