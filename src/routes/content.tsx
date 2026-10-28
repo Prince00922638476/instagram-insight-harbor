@@ -124,7 +124,7 @@ function LiveContent() {
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Metric icon={<Heart className="h-4 w-4" />} label="Likes" v={selected.like_count ?? null} />
             <Metric icon={<MessageCircle className="h-4 w-4" />} label="Comments" v={selected.comments_count ?? null} />
-            {insights.map(item => <Metric key={item.name} icon={<Eye className="h-4 w-4" />} label={item.name ?? "Metric"} v={typeof item.values?.[0]?.value === "number" ? item.values[0].value : null} />)}
+            {insights.map(item => <Metric key={item.name} icon={<Eye className="h-4 w-4" />} label={item.name ?? "Metric"} v={item.values?.[0]?.value ?? null} />)}
           </div>
           {insightError && <p className="mt-3 text-xs text-muted-foreground">{insightError}</p>}
           {selected.permalink && <a href={selected.permalink} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-semibold text-primary">Open post on Instagram ↗</a>}
