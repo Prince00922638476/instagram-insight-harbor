@@ -89,6 +89,8 @@ function Dashboard() {
     </>;
   }
 
+  const likesComplete = liveMedia.length > 0 && liveMedia.every(media => typeof media.like_count === "number");
+  const commentsComplete = liveMedia.length > 0 && liveMedia.every(media => typeof media.comments_count === "number");
   const likes = liveMedia.reduce((sum, media) => sum + (media.like_count ?? 0), 0);
   const comments = liveMedia.reduce((sum, media) => sum + (media.comments_count ?? 0), 0);
 
@@ -106,8 +108,8 @@ function Dashboard() {
     {liveError && <Card className="mb-5"><p role="alert" className="text-sm text-destructive">{liveError}</p></Card>}
     <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
       <Stat icon={<ImageIcon />} label="Recent media loaded" value={liveMedia.length} />
-      <Stat icon={<Eye />} label="Likes on loaded media" value={likes.toLocaleString()} />
-      <Stat icon={<MessageCircle />} label="Comments on loaded media" value={comments.toLocaleString()} />
+      <Stat icon={<Eye />} label="Likes on loaded media" value={likesComplete ? likes.toLocaleString() : "Unavailable"} />
+      <Stat icon={<MessageCircle />} label="Comments on loaded media" value={commentsComplete ? comments.toLocaleString() : "Unavailable"} />
       <Stat icon={<Plug />} label="Connection" value="Live" />
     </div>
     <h2 className="mb-3 mt-8 text-xl font-bold">Recent posts</h2>
