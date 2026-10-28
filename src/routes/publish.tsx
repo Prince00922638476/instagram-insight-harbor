@@ -46,8 +46,6 @@ function Publish() {
   return <LivePublish />;
 }
 
-const STEPS = ["Create media container", "Wait for processing", "Publish container"];
-
 function LivePublish() {
   const [kind, setKind] = useState<"IMAGE" | "REELS">("IMAGE");
   const [url, setUrl] = useState("");
