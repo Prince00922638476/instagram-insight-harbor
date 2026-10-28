@@ -9,7 +9,7 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen } from "lucide-react";
+import { LayoutGrid, Plug, Image, Send, MessageCircle, ScrollText, BookOpen, Bot } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -100,6 +100,7 @@ const nav = [
   { to: "/content", label: "Content", icon: Image },
   { to: "/publish", label: "Publish", icon: Send },
   { to: "/comments", label: "Comments", icon: MessageCircle },
+  { to: "/ai-chat", label: "AI Chat", icon: Bot },
   { to: "/activity", label: "Activity", icon: ScrollText },
   { to: "/setup", label: "Setup", icon: BookOpen },
 ] as const;
