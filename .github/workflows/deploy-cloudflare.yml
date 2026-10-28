@@ -33,7 +33,7 @@ jobs:
         run: |
           bun run build
           test -f .output/server/index.mjs
-          test -f .output/wrangler.json
+          test -f .output/server/wrangler.json
       - name: Deploy
         run: bunx nitro deploy --prebuilt
         env:
