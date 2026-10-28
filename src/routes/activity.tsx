@@ -1,13 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ScrollText, Loader2 } from "lucide-react";
-import { Button, Card, ConfirmDialog, DemoBadge, Empty, PageHeader } from "@/components/ui-kit";
-import { actions, useAppState } from "@/lib/app-store";
+import { Card, Empty, PageHeader } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/activity")({
   head: () => ({ meta: [
     { title: "Activity Log — InstaBridge MCP" },
-    { name: "description", content: "Audit trail of connection and Instagram write actions." },
+    { name: "description", content: "Real server-recorded Instagram actions." },
   ] }),
   component: Activity,
 });
@@ -17,13 +16,34 @@ const tone = { success: "bg-teal-soft text-accent-foreground", cancelled: "bg-mu
 
 function Activity() {
   const [connected, setConnected] = useState<boolean | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/public/meta/status", { cache: "no-store" }).then(response => response.json()).then((data: { connected?: boolean }) => { if (!cancelled) setConnected(Boolean(data.connected)); }).catch(() => { if (!cancelled) setConnected(false); });
+    fetch("/api/public/meta/status", { cache: "no-store", credentials: "same-origin" })
+      .then(async response => {
+        const data = await response.json() as { connected?: boolean; error?: string };
+        if (!response.ok) throw new Error(data.error || "Instagram connection status could not be loaded.");
+        return Boolean(data.connected);
+      })
+      .then(value => { if (!cancelled) { setConnected(value); setStatusError(null); } })
+      .catch(error => { if (!cancelled) setStatusError(error instanceof Error ? error.message : "Instagram connection status is unavailable."); });
     return () => { cancelled = true; };
   }, []);
+
+  if (statusError) return <>
+    <PageHeader title="Activity log" subtitle="Real server-recorded Instagram actions." />
+    <Card><p role="alert" className="text-sm text-destructive">{statusError}</p><button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-xl border px-4 py-2 text-sm font-semibold">Retry</button></Card>
+  </>;
   if (connected === null) return <div className="py-10 text-sm text-muted-foreground">Checking activity source…</div>;
-  return connected ? <LiveActivity /> : <DemoActivity />;
+  if (!connected) return <>
+    <PageHeader title="Activity log" subtitle="Real server-recorded Instagram actions." />
+    <Card>
+      <h2 className="font-bold">Instagram account not connected</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Only real actions recorded by the server appear here. Demo activity and simulated actions are disabled.</p>
+      <Link to="/connect" className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Connect Instagram</Link>
+    </Card>
+  </>;
+  return <LiveActivity />;
 }
 
 function LiveActivity() {
@@ -48,14 +68,3 @@ function LiveActivity() {
   </>;
 }
 
-function DemoActivity() {
-  const s = useAppState();
-  const [reset, setReset] = useState(false);
-  return <>
-    <PageHeader title="Activity log" subtitle="Demo activity only. Live actions are logged on the server." right={<DemoBadge />} />
-    {s.activity.length === 0 ? <Empty icon={<ScrollText className="h-8 w-8" />} title="No demo activity yet" text="Create a demo connector, reply to a demo comment or simulate publishing to see entries here." />
-      : <Card className="p-0"><ul className="divide-y">{s.activity.map(item => <li key={item.id} className="flex flex-wrap items-center gap-3 p-4"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${tone[item.status]}`}>{item.status}</span><code className="text-xs font-semibold">{item.action}</code><span className="flex-1 text-sm">{item.detail}</span><span className="text-xs text-muted-foreground">DEMO · {new Date(item.ts).toLocaleString()}</span></li>)}</ul></Card>}
-    <ConfirmDialog open={reset} title="Reset demo data?" summary="Clears the demo connector, replies, publish history and local log." confirmLabel="Reset" onCancel={() => setReset(false)} onConfirm={() => { actions.reset(); setReset(false); }} />
-    {s.activity.length > 0 && <Button variant="outline" className="mt-4" onClick={() => setReset(true)}>Reset demo</Button>}
-  </>;
-}
