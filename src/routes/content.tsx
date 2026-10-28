@@ -122,9 +122,9 @@ function LiveContent() {
           <p className="text-xs text-muted-foreground">{selected.timestamp ? new Date(selected.timestamp).toLocaleString() : "Instagram media"}</p>
           <p className="mt-1 font-semibold">{selected.caption || "(no caption)"}</p>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <Metric icon={<Heart className="h-4 w-4" />} label="Likes" v={selected.like_count ?? 0} />
-            <Metric icon={<MessageCircle className="h-4 w-4" />} label="Comments" v={selected.comments_count ?? 0} />
-            {insights.map(item => <Metric key={item.name} icon={<Eye className="h-4 w-4" />} label={item.name ?? "Metric"} v={Number(item.values?.[0]?.value ?? 0)} />)}
+            <Metric icon={<Heart className="h-4 w-4" />} label="Likes" v={selected.like_count ?? null} />
+            <Metric icon={<MessageCircle className="h-4 w-4" />} label="Comments" v={selected.comments_count ?? null} />
+            {insights.map(item => <Metric key={item.name} icon={<Eye className="h-4 w-4" />} label={item.name ?? "Metric"} v={typeof item.values?.[0]?.value === "number" ? item.values[0].value : null} />)}
           </div>
           {insightError && <p className="mt-3 text-xs text-muted-foreground">{insightError}</p>}
           {selected.permalink && <a href={selected.permalink} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-semibold text-primary">Open post on Instagram ↗</a>}
@@ -133,11 +133,11 @@ function LiveContent() {
   </>;
 }
 
-function Metric({ icon, label, v }: { icon: React.ReactNode; label: string; v: number }) {
+function Metric({ icon, label, v }: { icon: React.ReactNode; label: string; v: number | null }) {
   return (
     <div className="rounded-xl bg-muted p-3">
       <div className="flex items-center gap-1 text-xs text-muted-foreground">{icon}{label}</div>
-      <p className="font-display text-lg font-bold">{v.toLocaleString()}</p>
+      <p className="font-display text-lg font-bold">{v === null ? "Unavailable" : v.toLocaleString()}</p>
     </div>
   );
 }
