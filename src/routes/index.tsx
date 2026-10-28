@@ -24,8 +24,15 @@ function Dashboard() {
   const [live, setLive] = useState<{ connected: boolean; account?: { username: string | null; accountType: string | null } | null } | null>(null);
   const [liveMedia, setLiveMedia] = useState<Array<{ id: string; caption?: string; permalink?: string; media_url?: string; thumbnail_url?: string; media_type?: string; like_count?: number; comments_count?: number }>>([]);
   const [liveError, setLiveError] = useState<string | null>(null);
-  const [liveLoaded, setLiveLoaded] = useState(false);
+  const [liveLoaded, setLiveLoaded] = useState(true);
   useEffect(() => {
+    if (cfg.isLoading) return;
+    if (!cfg.data?.configured) {
+      setLive(null);
+      setLiveLoaded(true);
+      return;
+    }
+    setLiveLoaded(false);
     let cancelled = false;
     async function load() {
       try {
@@ -45,7 +52,7 @@ function Dashboard() {
     }
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [cfg.isLoading, cfg.data?.configured]);
   const open = s.comments.filter((c) => c.replies.length === 0 && !c.hidden).length;
   const max = Math.max(...weeklyReach);
 
