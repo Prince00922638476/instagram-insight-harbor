@@ -84,6 +84,71 @@ export function graphVersion(): string {
   const version = process.env["INSTAGRAM_GRAPH_API_VERSION"] ?? "v25.0";
   return /^v[0-9]+[.]0$/.test(version) ? version : "v25.0";
 }
+export type LimitedRequestBodyResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: "too_large" | "read_error" | "invalid_utf8" };
+
+/**
+ * Read a request body with a streaming byte limit. Checking the length only
+ * after request.text() is too late because an oversized body has already been
+ * buffered in memory.
+ */
+export async function readLimitedRequestBody(
+  request: Request,
+  maxBytes: number,
+): Promise<LimitedRequestBodyResult> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) {
+    throw new Error("maxBytes must be a non-negative safe integer.");
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > maxBytes) {
+    try {
+      await request.body?.cancel();
+    } catch {
+      // The streaming limit below remains authoritative if cancellation fails.
+    }
+    return { ok: false, reason: "too_large" };
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { ok: true, text: "" };
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          // The request is rejected even if the stream cannot be cancelled.
+        }
+        return { ok: false, reason: "too_large" };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, reason: "read_error" };
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return { ok: true, text: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
+  } catch {
+    return { ok: false, reason: "invalid_utf8" };
+  }
+}
+
 export async function loadInstagramToken(sessionId: string): Promise<string> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const [{ data: tokenRow, error: tokenError }, { data: connection, error: connectionError }] = await Promise.all([
