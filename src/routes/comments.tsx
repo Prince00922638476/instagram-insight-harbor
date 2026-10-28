@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageCircle, EyeOff, Eye, Reply, Loader2 } from "lucide-react";
 import { Button, Card, ConfirmDialog, Empty, PageHeader } from "@/components/ui-kit";
 
@@ -16,7 +16,6 @@ type MediaItem = { id: string; caption?: string; timestamp?: string };
 type Pending = { kind: "reply"; id: string; text: string; hidden?: never } | { kind: "hide"; id: string; hidden: boolean; text?: never };
 
 function Comments() {
-  const [filter, setFilter] = useState<"open" | "all">("open");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<Pending | null>(null);
   const [live, setLive] = useState(false);
@@ -97,7 +96,7 @@ function Comments() {
     }
   }
 
-  const liveList = useMemo(() => liveComments.filter(comment => filter === "all" || (comment.replies.length === 0 && !comment.hidden)), [liveComments, filter]);
+  const liveList = liveComments;
   const liveTarget = pending ? liveComments.find(comment => comment.id === pending.id) : undefined;
 
   if (loading && !live) {
@@ -126,10 +125,10 @@ function Comments() {
   return (
     <>
       <PageHeader title="Comments" subtitle="Live comments from your Instagram account. Every write action requires confirmation." />
-      <div className="mb-4 flex gap-2">{(["open", "all"] as const).map(f => <button key={f} onClick={() => setFilter(f)} className={`rounded-xl px-3 py-2 text-xs font-semibold ${filter === f ? "bg-foreground text-background" : "border bg-card"}`}>{f === "open" ? "Needs reply" : "All"}</button>)}</div>
+      <p className="mb-4 text-xs text-muted-foreground">Showing comments returned by Instagram for the eight latest media items. Reply history is not inferred.</p>
       {loading ? <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading recent comments…</div>
         : liveError ? <Card><p role="alert" className="text-sm text-destructive">{liveError}</p><Button className="mt-3" onClick={() => window.location.reload()}>Retry</Button></Card>
-        : liveList.length === 0 ? <Empty icon={<MessageCircle className="h-8 w-8" />} title="No comments found" text="No comments were returned for the eight latest media items, or all comments are replied to." />
+        : liveList.length === 0 ? <Empty icon={<MessageCircle className="h-8 w-8" />} title="No comments found" text="Instagram returned no comments for the eight latest media items." />
         : <div className="space-y-3">{liveList.map(comment => <Card key={comment.id} className={comment.hidden ? "opacity-60" : ""}>
           <div className="flex items-start justify-between gap-3">
             <div><p className="text-sm"><strong>@{comment.user}</strong> <span className="text-xs text-muted-foreground">on “{comment.mediaCaption}” · {comment.date}</span></p><p className="mt-1">{comment.text}</p></div>
