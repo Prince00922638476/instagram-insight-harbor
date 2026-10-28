@@ -274,7 +274,7 @@ export const Route = createFileRoute("/api/public/ai/chat")({
                 },
               });
             }
-            conversation.push({ role: "function", parts: functionResponseParts });
+            conversation.push({ role: "user", parts: functionResponseParts });
           }
           if (!finalText) finalText = pendingAction
             ? "मैंने action तैयार कर दिया है। उसे Instagram पर भेजने से पहले नीचे exact details देखकर Confirm दबाएँ।"
