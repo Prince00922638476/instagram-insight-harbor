@@ -34,6 +34,22 @@ jobs:
           bun run build
           test -f .output/server/index.mjs
           test -f .output/server/wrangler.json
+      - name: Persist production Worker variables in deploy config
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const path = ".output/server/wrangler.json";
+          const config = JSON.parse(fs.readFileSync(path, "utf8"));
+          config.vars = {
+            ...(config.vars ?? {}),
+            META_APP_ID: "1757933928640562",
+            META_REDIRECT_URI: "https://instagram-insight-harbor.ghostempire1m.workers.dev/api/public/meta/callback",
+            SUPABASE_URL: "https://hkxriebexkuupdfktlga.supabase.co",
+          };
+          fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n");
+          console.log("Persisted 3 non-secret production Worker variables in generated deploy config.");
+          NODE
       - name: Deploy
         run: bunx nitro deploy --prebuilt
         env:
