@@ -51,7 +51,7 @@ function toGeminiSchema(value: unknown): unknown {
 
   const allowedKeys = new Set([
     "type", "description", "enum", "items", "minimum", "maximum",
-    "properties", "required", "additionalProperties",
+    "properties", "required",
   ]);
   const schema = value as Record<string, unknown>;
   const output: Record<string, unknown> = {};
