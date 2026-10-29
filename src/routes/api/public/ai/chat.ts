@@ -25,6 +25,17 @@ type GeminiResponse = {
   error?: { message?: string; status?: string; code?: number };
 };
 
+/**
+ * Keep this allowlist to models whose standard Gemini API tier is listed as free.
+ * Fallback is model-level only; it never switches to a paid provider or paid model.
+ */
+const FREE_GEMINI_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+] as const;
+
 const tools = [
   { type: "function", function: { name: "get_profile", description: "Read the connected Instagram professional profile.", parameters: { type: "object", properties: {}, additionalProperties: false } } },
   { type: "function", function: { name: "list_media", description: "Read recent media from the connected Instagram account.", parameters: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 20 } }, additionalProperties: false } } },
@@ -187,43 +198,97 @@ export const Route = createFileRoute("/api/public/ai/chat")({
           role: message.role === "assistant" ? "model" : "user",
           parts: [{ text: message.content }],
         }));
-        const model = process.env["GEMINI_MODEL"] || "gemini-2.5-flash";
+        const configuredModel = process.env["GEMINI_MODEL"]?.trim();
+        const models: string[] = configuredModel && (FREE_GEMINI_MODELS as readonly string[]).includes(configuredModel)
+          ? [configuredModel, ...FREE_GEMINI_MODELS.filter((candidate) => candidate !== configuredModel)]
+          : [...FREE_GEMINI_MODELS];
+        if (configuredModel && !models.includes(configuredModel)) {
+          console.warn("[AI chat] Ignoring GEMINI_MODEL outside the free-model allowlist.");
+        }
+        let nextModelIndex = 0;
 
         try {
           let finalText = "";
           for (let turn = 0; turn < 4; turn++) {
-            const providerUrl = new URL(
-              "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent",
-            );
-            const response = await fetch(providerUrl, {
-              method: "POST",
-              headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: conversation,
-                tools: [{ functionDeclarations: geminiFunctionDeclarations }],
-                toolConfig: { functionCallingConfig: { mode: "AUTO" } },
-                generationConfig: { temperature: 0.3, maxOutputTokens: 1000 },
-              }),
-              signal: AbortSignal.timeout(45000),
-            });
-            const result = await response.json().catch(() => ({})) as GeminiResponse;
-            if (!response.ok) {
-              console.error("[AI chat] Gemini request failed:", response.status);
+            let result: GeminiResponse | null = null;
+            let activeModel = "";
+            let lastStatus = 502;
+            let lastProviderError = "";
+
+            while (nextModelIndex < models.length) {
+              const model = models[nextModelIndex];
+              const providerUrl = new URL(
+                "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent",
+              );
+              let response: Response;
+              try {
+                response = await fetch(providerUrl, {
+                  method: "POST",
+                  headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: conversation,
+                    tools: [{ functionDeclarations: geminiFunctionDeclarations }],
+                    toolConfig: { functionCallingConfig: { mode: "AUTO" } },
+                    generationConfig: { temperature: 0.3, maxOutputTokens: 1000 },
+                  }),
+                  signal: AbortSignal.timeout(45000),
+                });
+              } catch (error) {
+                lastStatus = 502;
+                lastProviderError = error instanceof Error ? error.name : "network_error";
+                console.error("[AI chat] Gemini model request failed", { model, status: lastStatus, reason: lastProviderError });
+                nextModelIndex++;
+                continue;
+              }
+
+              const candidateResult = await response.json().catch(() => ({})) as GeminiResponse;
+              if (response.ok) {
+                result = candidateResult;
+                activeModel = model;
+                break;
+              }
+
+              lastStatus = response.status;
+              lastProviderError = candidateResult.error?.status || candidateResult.error?.message || "provider_error";
+              console.error("[AI chat] Gemini model request failed", {
+                model,
+                status: response.status,
+                providerCode: candidateResult.error?.code,
+                providerStatus: candidateResult.error?.status,
+                providerMessage: candidateResult.error?.message?.slice(0, 240),
+              });
+
               if (response.status === 401 || response.status === 403) {
                 return Response.json(
-                  { error: "Gemini API key अस्वीकार हुई। Cloudflare secret GEMINI_API_KEY जाँचें।" },
+                  { error: "Gemini API key या प्रोजेक्ट access में समस्या है। Cloudflare secret GEMINI_API_KEY और Google AI Studio में project status जाँचें।" },
                   { status: 503, headers: noStoreHeaders() },
                 );
               }
-              if (response.status === 429) {
+
+              // Quotas and temporary/model-availability errors can differ by model.
+              // Move to the next free model instead of failing the whole chat.
+              if (response.status === 429 || response.status === 404 || response.status >= 500) {
+                nextModelIndex++;
+                continue;
+              }
+
+              return Response.json(
+                { error: "AI अनुरोध अस्वीकार हुआ। Server logs में सुरक्षित provider error दर्ज है।" },
+                { status: 502, headers: noStoreHeaders() },
+              );
+            }
+
+            if (!result) {
+              if (lastStatus === 429) {
                 return Response.json(
-                  { error: "Gemini API की free-tier सीमा पूरी हो सकती है। थोड़ी देर बाद फिर प्रयास करें या Google AI Studio में quota जाँचें।" },
+                  { error: "सभी उपलब्ध free Gemini models की quota सीमा पूरी हो सकती है। थोड़ी देर बाद फिर कोशिश करें।" },
                   { status: 429, headers: noStoreHeaders() },
                 );
               }
+              console.error("[AI chat] All free Gemini models failed.", { status: lastStatus, reason: lastProviderError });
               return Response.json(
-                { error: "Gemini API से जवाब नहीं मिला। कुछ देर बाद फिर कोशिश करें।" },
+                { error: "सभी उपलब्ध free Gemini models अभी जवाब नहीं दे पाए। थोड़ी देर बाद फिर कोशिश करें।" },
                 { status: 502, headers: noStoreHeaders() },
               );
             }
