@@ -81,7 +81,7 @@ const geminiFunctionDeclarations = tools.map((tool) => {
   return {
     name: definition.name,
     description: definition.description,
-    parametersJsonSchema: toGeminiSchema(definition.parameters),
+    parameters: toGeminiSchema(definition.parameters),
   };
 });
 
