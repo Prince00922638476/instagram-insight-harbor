@@ -211,7 +211,6 @@ export const Route = createFileRoute("/api/public/ai/chat")({
           let finalText = "";
           for (let turn = 0; turn < 4; turn++) {
             let result: GeminiResponse | null = null;
-            let activeModel = "";
             let lastStatus = 502;
             let lastProviderError = "";
 
@@ -245,7 +244,6 @@ export const Route = createFileRoute("/api/public/ai/chat")({
               const candidateResult = await response.json().catch(() => ({})) as GeminiResponse;
               if (response.ok) {
                 result = candidateResult;
-                activeModel = model;
                 break;
               }
 
