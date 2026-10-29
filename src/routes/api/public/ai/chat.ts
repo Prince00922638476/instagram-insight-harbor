@@ -64,6 +64,8 @@ function toGeminiSchema(value: unknown): unknown {
       );
     } else if (key === "items") {
       output[key] = toGeminiSchema(nested);
+    } else if (key === "type" && typeof nested === "string") {
+      output[key] = nested.toUpperCase();
     } else {
       output[key] = nested;
     }
@@ -78,10 +80,13 @@ const geminiFunctionDeclarations = tools.map((tool) => {
     description: string;
     parameters: Record<string, unknown>;
   };
+  const properties = definition.parameters.properties;
   return {
     name: definition.name,
     description: definition.description,
-    parametersJsonSchema: toGeminiSchema(definition.parameters),
+    ...(properties && Object.keys(properties as Record<string, unknown>).length > 0
+      ? { parameters: toGeminiSchema(definition.parameters) }
+      : {}),
   };
 });
 
